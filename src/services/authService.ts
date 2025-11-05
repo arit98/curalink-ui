@@ -45,7 +45,7 @@ export const authService = {
       const token = data.token || data.access_token || null;
       if (token) localStorage.setItem('token', token);
       // Notify app that auth state changed
-      try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* noop */ }
+      try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* for build */ }
 
       const id = String(data.id || data.user?.id || '');
       const role = Number(data.role ?? data.user?.role ?? 0);
@@ -103,7 +103,7 @@ export const authService = {
       if (id) localStorage.setItem('userId', id);
       localStorage.setItem('role', String(role));
 
-      try { window.dispatchEvent(new Event('authChange')); } catch (e)
+      try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* noop */ }
 
       return {
         success: true,
