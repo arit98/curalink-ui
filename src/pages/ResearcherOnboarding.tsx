@@ -45,9 +45,9 @@ const ResearcherOnboarding = () => {
     if (step === 1 && condition) {
       setStep(2);
     } else if (step === 2) {
+      authService.logout();
       navigate("/");
       toast.success("Your researcher account has been successfully created");
-      localStorage.clear();
     }
   };
 

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
 import { ArrowRight, X } from "lucide-react";
 import { toast } from 'react-toastify';
+import { authService } from "@/services/authService";
 
 const PatientOnboarding = () => {
   const navigate = useNavigate();
@@ -44,9 +45,9 @@ const PatientOnboarding = () => {
     if (step === 1 && condition) {
       setStep(2);
     } else if (step === 2) {
-      navigate("/");
+      authService.logout();
       toast.success("Your patient account has been successfully created");
-      localStorage.clear()
+      navigate("/");
     }
   };
 

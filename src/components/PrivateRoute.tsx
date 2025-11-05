@@ -30,7 +30,13 @@ const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
     }
 
     const userRole =
-      typeof decoded.role === "string" ? parseInt(decoded.role) : decoded.role;
+      typeof decoded.role === "string" ? parseInt(decoded.role, 10) : decoded.role;
+
+    if (userRole == null || Number.isNaN(userRole)) {
+      // Unknown or invalid role: treat as unauthenticated
+      localStorage.removeItem("token");
+      return <Navigate to="/" state={{ from: location }} replace />;
+    }
 
     if (allowedRoles && !allowedRoles.includes(userRole ?? -1)) {
       return <Navigate to="/" replace />;

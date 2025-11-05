@@ -18,6 +18,8 @@ const PatientDashboard = () => {
   const navigate = useNavigate();
 
   const userId = localStorage.getItem("userId")
+  const userRole = localStorage.getItem("role")
+  console.log("user role type : ",typeof(userRole));
 
   const [selectedTrial, setSelectedTrial] = useState<any | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<any | null>(null);

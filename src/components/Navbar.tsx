@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Heart, User, Menu } from "lucide-react";
+import { Search, Heart, User, Menu, LogOut, LayoutDashboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from 'react-toastify';
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
 
   const navLinks = [
-    { label: "Dashboard", path: "/patient-dashboard" },
-    { label: "Clinical Trials", path: "/clinical-trials" },
-    { label: "Publications", path: "/publications" },
-    { label: "Experts", path: "/experts" },
-    { label: "Forums", path: "/forums" },
+    { label: "Dashboard", path: "/" },
   ];
 
   const [shouldLogout, setShouldLogout] = useState(false);
@@ -132,17 +128,22 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
                   {navLinks.map((link) => (
                     <Link key={link.path} to={link.path}>
                       <Button variant="ghost" className="w-full justify-start">
+                      <LayoutDashboard className="h-4 w-4 mr-2 md:flex lg:flex" />
                         {link.label}
                       </Button>
                     </Link>
                   ))}
                   <Button onClick={()=>navigate("/favorites")} variant="ghost" className="w-full justify-start">
-                    <Heart className="h-4 w-4 mr-2 md:flex lg:flex hidden" />
+                    <Heart className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Favorites
                   </Button>
                   <Button variant="ghost" className="w-full justify-start">
-                    <User className="h-4 w-4 mr-2 md:flex lg:flex hidden" />
+                    <User className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Profile
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={()=>{authService.logout()}}>
+                    <LogOut className="h-4 w-4 mr-2 md:flex lg:flex" />
+                    Logout
                   </Button>
                 </>
               )}
