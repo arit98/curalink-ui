@@ -149,10 +149,10 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
               )}
               {!showSearch && (
                 <>
-                  <Link to="/patient-onboarding">
+                  <Link to="/user">
                     <Button variant="ghost" className="w-full">Sign In</Button>
                   </Link>
-                  <Link to="/patient-onboarding">
+                  <Link to="/user">
                     <Button className="w-full">Get Started</Button>
                   </Link>
                 </>
