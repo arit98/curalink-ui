@@ -33,9 +33,9 @@ const UserProfile = () => {
     setError("");
 
     try {
-      console.log("Attempting login with:", { email });
+      // console.log("Attempting login with:", { email });
       const result = await authService.login({ email, password });
-      console.log("Login result:", result);
+      // console.log("Login result:", result);
 
       if (result.success) {
         toast.success("Signed in successfully");

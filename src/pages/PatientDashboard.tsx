@@ -19,7 +19,7 @@ const PatientDashboard = () => {
 
   const userId = localStorage.getItem("userId")
   const userRole = localStorage.getItem("role")
-  console.log("user role type : ",typeof(userRole));
+  // console.log("user role type : ",typeof(userRole));
 
   const [selectedTrial, setSelectedTrial] = useState<any | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<any | null>(null);
@@ -69,7 +69,7 @@ const PatientDashboard = () => {
         const user = await authService.fetchUserById(userId);
         setUserDetails(user);
         // Log fetched user's name to console for debugging
-        console.log("Fetched user name:", user?.name);
+        // console.log("Fetched user name:", user?.name);
       } catch (err) {
         console.error("Failed to fetch user", err);
       }
