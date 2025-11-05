@@ -1,0 +1,12 @@
+/* Override react-toastify success toast color */
+.Toastify__toast--success {
+  background: #eee !important;
+  color: #757575 !important;
+}
+
+.Toastify__progress-bar--success {
+  background: #28BDA4 !important;
+}
+
+
+

@@ -42,7 +42,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
     if (!shouldLogout) return;
     navigate("/");
     authService.logout();
-    toast.info("Logged out successfully");
+    toast.success("Logged out successfully");
     setShouldLogout(false);
   }, [shouldLogout, navigate]);
 
@@ -141,7 +141,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
                     <User className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Profile
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={()=>{authService.logout()}}>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => handleLogout()}>
                     <LogOut className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Logout
                   </Button>
