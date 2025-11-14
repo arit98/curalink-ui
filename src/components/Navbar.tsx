@@ -32,6 +32,10 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
     setShouldLogout(true);
   }
 
+  const handleProfile = () => {
+    navigate("/profile")
+  }
+
   useEffect(() => {
     const handler = () => setIsAuthenticated(authService.isAuthenticated());
     window.addEventListener('authChange', handler);
@@ -87,7 +91,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={()=> handleProfile()}>Profile</DropdownMenuItem>
                   {/* <DropdownMenuItem>Settings</DropdownMenuItem> */}
                   <DropdownMenuItem onClick={() => handleLogout()}>Log out</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -137,7 +141,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
                     <Heart className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Favorites
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button variant="ghost" className="w-full justify-start" onClick={()=> handleProfile()}>
                     <User className="h-4 w-4 mr-2 md:flex lg:flex" />
                     Profile
                   </Button>

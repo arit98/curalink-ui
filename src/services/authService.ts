@@ -18,6 +18,7 @@ interface AuthResponse {
   token?: string;
   user?: any;
   id?: string;
+  has_onboarded?: boolean;
 }
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
@@ -26,7 +27,6 @@ export const authService = {
   // ---------------- LOGIN ----------------
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      // Send directly to backend
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,11 +44,13 @@ export const authService = {
 
       const token = data.token || data.access_token || null;
       if (token) localStorage.setItem('token', token);
+
       // Notify app that auth state changed
       try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* for build */ }
 
       const id = String(data.id || data.user?.id || '');
       const role = Number(data.role ?? data.user?.role ?? 0);
+      const has_onboarded = Boolean(data.has_onboarded ?? false); // <-- extract from backend
 
       if (id) localStorage.setItem('userId', id);
       localStorage.setItem('role', String(role));
@@ -59,6 +61,7 @@ export const authService = {
         id,
         role,
         user: data.user,
+        has_onboarded, // <-- return to frontend
       };
     } catch (error) {
       console.error('Login error:', error);
@@ -99,9 +102,6 @@ export const authService = {
 
       const id = String(data.id || data.user?.id || '');
       const role = Number(data.role ?? data.user?.role ?? 0);
-
-      if (id) localStorage.setItem('userId', id);
-      localStorage.setItem('role', String(role));
 
       try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* noop */ }
 

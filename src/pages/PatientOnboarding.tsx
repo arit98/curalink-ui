@@ -4,50 +4,87 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
-import { ArrowRight, X } from "lucide-react";
-import { toast } from 'react-toastify';
+import { ArrowRight, Navigation, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { authService } from "@/services/authService";
+import { patientService } from "@/services/patientService";
 
 const PatientOnboarding = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // Start at step 1 now (no auth step)
+  const [step, setStep] = useState(1);
   const [condition, setCondition] = useState("");
   const [location, setLocation] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  
-  // Check authentication on component mount
-  // useEffect(() => {
-  //   if (!authService.isAuthenticated()) {
-  //     navigate("/user"); // Redirect to User page if not authenticated
-  //   }
-  // }, [navigate]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
-  const diseaseTags = [
-    "Lung Cancer",
-    "Glioma",
-    "Breast Cancer",
-    "Diabetes",
-    "Alzheimer's",
-    "Parkinson's",
-    "Heart Disease",
-    "Kidney Disease",
-  ];
+  // Check if logged in
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      navigate("/user");
+    }
+  }, [navigate]);
 
-  const handleTagToggle = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+  // Get current location and reverse geocode
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
+          );
+          const data = await response.json();
+
+          const locationString = data.address
+            ? `${data.address.city || data.address.town || data.address.village || ""}, ${data.address.state || ""
+              }, ${data.address.country || ""}`
+              .replace(/^,\s*/, "")
+              .replace(/,\s*,/g, ",")
+              .trim()
+            : data.display_name;
+
+          setLocation(locationString);
+          toast.success("Location updated!");
+        } catch (error) {
+          toast.error("Failed to fetch location details");
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        toast.error("Unable to retrieve your location");
+      }
     );
   };
 
-  const handleContinue = () => {
-    if (step === 1 && condition) {
+  // Handle navigation logic
+  const handleContinue = async () => {
+    if (step === 1 && condition.trim()) {
       setStep(2);
-    } else if (step === 2) {
-      authService.logout();
-      toast.success("Your patient account has been successfully created");
-      navigate("/");
+      return;
+    }
+
+    if (step === 2) {
+      try {
+        setIsLoading(true);
+        await patientService.saveProfile({ condition, location });
+        toast.success("Your patient account has been successfully created!");
+        navigate("/patient-dashboard");
+      } catch (err: any) {
+        console.error("Error saving patient profile:", err);
+        toast.error(err.message || "Failed to complete onboarding");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -58,29 +95,41 @@ const PatientOnboarding = () => {
       <main className="flex-1 flex items-center justify-center py-12 px-4">
         <div className="w-full max-w-2xl">
           <div className="bg-card rounded-2xl shadow-lg p-8 md:p-12">
-            {/* Progress Indicator */}
+            {/* Progress */}
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center space-x-4">
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold ${
-                  step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}>
+                <div
+                  className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold ${step >= 1
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                    }`}
+                >
                   1
                 </div>
-                <div className={`h-1 w-16 ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold ${
-                  step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}>
+                <div
+                  className={`h-1 w-16 ${step >= 2 ? "bg-primary" : "bg-muted"}`}
+                />
+                <div
+                  className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold ${step >= 2
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                    }`}
+                >
                   2
                 </div>
               </div>
             </div>
 
-            {/* Step 1: Condition */}
+            {/* Step 1 */}
             {step === 1 && (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h1 className="text-3xl font-bold text-foreground">Tell Us More</h1>
-                  <p className="text-muted-foreground">Tell us about your medical condition</p>
+                  <h1 className="text-3xl font-bold text-foreground">
+                    Tell Us More
+                  </h1>
+                  <p className="text-muted-foreground">
+                    Tell us about your medical condition
+                  </p>
                 </div>
 
                 <div className="space-y-3">
@@ -99,7 +148,7 @@ const PatientOnboarding = () => {
 
                 <Button
                   onClick={handleContinue}
-                  disabled={!condition}
+                  disabled={!condition.trim() || isLoading}
                   className="w-full"
                   size="lg"
                 >
@@ -109,12 +158,16 @@ const PatientOnboarding = () => {
               </div>
             )}
 
-            {/* Step 2: Location & Tags */}
+            {/* Step 2 */}
             {step === 2 && (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h1 className="text-3xl font-bold text-foreground">Almost there</h1>
-                  <p className="text-muted-foreground">Help us personalize your experience</p>
+                  <h1 className="text-3xl font-bold text-foreground">
+                    Almost there
+                  </h1>
+                  <p className="text-muted-foreground">
+                    Help us personalize your experience
+                  </p>
                 </div>
 
                 <div className="space-y-3">
@@ -126,28 +179,21 @@ const PatientOnboarding = () => {
                     placeholder="Enter your city or country"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
+                    className="flex-1"
                   />
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-base">
-                    Related conditions (optional)
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {diseaseTags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant={selectedTags.includes(tag) ? "default" : "outline"}
-                        className="cursor-pointer text-sm py-2 px-3"
-                        onClick={() => handleTagToggle(tag)}
-                      >
-                        {tag}
-                        {selectedTags.includes(tag) && (
-                          <X className="ml-1 h-3 w-3" />
-                        )}
-                      </Badge>
-                    ))}
-                  </div>
+                  <Button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    disabled={isLocating}
+                    size="icon"
+                    className="h-10 w-12 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    {isLocating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Navigation className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
 
                 <div className="flex space-x-4">
@@ -161,10 +207,11 @@ const PatientOnboarding = () => {
                   </Button>
                   <Button
                     onClick={handleContinue}
+                    disabled={isLoading}
                     className="flex-1"
                     size="lg"
                   >
-                    Go to Dashboard
+                    {isLoading ? "Saving..." : "Go to Dashboard"}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </div>

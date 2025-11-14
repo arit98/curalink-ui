@@ -22,6 +22,7 @@ import Forums from "./pages/Forums";
 import NotFound from "./pages/NotFound";
 import UserProfile from "./pages/User";
 import { useEffect, useState } from "react";
+import { PatientProfile } from "./pages/PatientProfile";
 // import PublicRoute from "./components/PublicRoute";
 
 const queryClient = new QueryClient();
@@ -63,9 +64,12 @@ const App = () => {
               }
             />
             <Route path="/user" element={<UserProfile />} />
-            <Route path="/patient-onboarding" element={<PatientOnboarding />} />
-            <Route path="/researcher-onboarding" element={<ResearcherOnboarding />} />
             {/* Protected Routes patient */}
+            <Route path="/patient-onboarding" element={
+              <PrivateRoute allowedRoles={[0]}>
+                <PatientOnboarding /></PrivateRoute>
+            }
+            />
             <Route
               path="/patient-dashboard"
               element={
@@ -83,6 +87,12 @@ const App = () => {
               }
             />
             {/* Protected Routes researcher */}
+            <Route path="/researcher-onboarding" element={
+              <PrivateRoute allowedRoles={[1]}>
+                <ResearcherOnboarding />
+              </PrivateRoute>
+            }
+            />
             <Route
               path="/researcher-dashboard"
               element={
@@ -100,6 +110,14 @@ const App = () => {
               }
             />
             {/* Protected Routes common */}
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute allowedRoles={[0, 1]}>
+                  <PatientProfile />
+                </PrivateRoute>
+              }
+            />
             <Route
               path="/clinical-trials"
               element={

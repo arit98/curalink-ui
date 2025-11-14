@@ -33,23 +33,28 @@ const UserProfile = () => {
     setError("");
 
     try {
-      // console.log("Attempting login with:", { email });
       const result = await authService.login({ email, password });
-      // console.log("Login result:", result);
 
       if (result.success) {
         toast.success("Signed in successfully");
-        // Prefer the role returned by the login response, fall back to stored role
         const resolvedRole = result.role ?? authService.getRole();
+
         if (resolvedRole === 0) {
-          navigate("/patient-dashboard");
+          if (result.has_onboarded) {
+            navigate("/patient-dashboard");
+          } else {
+            navigate("/patient-onboarding");
+          }
         } else if (resolvedRole === 1) {
-          navigate("/researcher-dashboard");
+          if (result.has_onboarded) {
+            navigate("/researcher-dashboard");
+          } else {
+            navigate("/researcher-onboarding");
+          }
         } else {
           navigate("/");
         }
       } else {
-        console.log("Login failed:", result.message);
         setError(result.message || "Login failed");
         toast.error(result.message || "Login failed");
       }
@@ -80,10 +85,16 @@ const UserProfile = () => {
       });
 
       if (result.success) {
-        if (authService.getRole() == 0)
+        toast.success("Account created successfully");
+
+        // Navigate to onboarding based on role
+        if (role === 0) {
           navigate("/patient-onboarding");
-        if (authService.getRole() == 1)
+        } else if (role === 1) {
           navigate("/researcher-onboarding");
+        } else {
+          navigate("/");
+        }
       } else {
         setError(result.message || "Registration failed");
         toast.error(result.message || "Registration failed");
@@ -121,6 +132,7 @@ const UserProfile = () => {
                   <TabsTrigger value="register">Register</TabsTrigger>
                 </TabsList>
 
+                {/* ---------------- LOGIN ---------------- */}
                 <TabsContent value="login" className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-base">Email</Label>
@@ -162,6 +174,7 @@ const UserProfile = () => {
                   </Button>
                 </TabsContent>
 
+                {/* ---------------- REGISTER ---------------- */}
                 <TabsContent value="register" className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="register-name" className="text-base">Name</Label>
@@ -227,7 +240,7 @@ const UserProfile = () => {
                     className="w-full mt-2"
                     size="lg"
                   >
-                    {isLoading ? "Creating Account..." : "Create Account"}
+                    {isLoading ? "Continuing..." : "Continue"}
                   </Button>
                 </TabsContent>
               </Tabs>
