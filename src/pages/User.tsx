@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,15 +13,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const UserProfile = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Auth states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<number>(0);
+  const [role, setRole] = useState<number>(() => {
+    const roleParam = searchParams.get("role");
+    return roleParam ? Number(roleParam) : 0;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register">(() => {
+    return searchParams.get("mode") === "register" ? "register" : "login";
+  });
+
+  // Update auth mode and role when URL params change
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "register") {
+      setAuthMode("register");
+    } else if (mode === "login") {
+      setAuthMode("login");
+    }
+
+    const roleParam = searchParams.get("role");
+    if (roleParam !== null) {
+      setRole(Number(roleParam));
+    }
+  }, [searchParams]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -126,7 +147,7 @@ const UserProfile = () => {
                 </Alert>
               )}
 
-              <Tabs defaultValue="login" className="w-full" onValueChange={(value) => setAuthMode(value as "login" | "register")}>
+              <Tabs value={authMode} className="w-full" onValueChange={(value) => setAuthMode(value as "login" | "register")}>
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="login">Login</TabsTrigger>
                   <TabsTrigger value="register">Register</TabsTrigger>

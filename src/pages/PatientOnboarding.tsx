@@ -9,6 +9,7 @@ import { ArrowRight, Navigation, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { authService } from "@/services/authService";
 import { patientService } from "@/services/patientService";
+import axios from "axios";
 
 const PatientOnboarding = () => {
   const navigate = useNavigate();
@@ -38,10 +39,10 @@ const PatientOnboarding = () => {
         const { latitude, longitude } = position.coords;
 
         try {
-          const response = await fetch(
+          const response = await axios.get(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
           );
-          const data = await response.json();
+          const data = response.data;
 
           const locationString = data.address
             ? `${data.address.city || data.address.town || data.address.village || ""}, ${data.address.state || ""

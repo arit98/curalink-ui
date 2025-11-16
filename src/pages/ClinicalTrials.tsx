@@ -4,12 +4,25 @@ import { TrialCard } from "@/components/TrialCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, Filter } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { fetchTrials } from "@/services/trialService";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { trialService } from "@/services/trialService";
 import { TrialDetailsModal } from "@/components/TrialDetailsModal";
 import { useFavorites } from "@/hooks/useFavorites";
+import { AddTrialModal } from "@/components/AddClinicalTrials Modal";
 
 const ClinicalTrials = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -22,13 +35,15 @@ const ClinicalTrials = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const role = localStorage.getItem("role")
+
   useEffect(() => {
     let mounted = true;
     async function loadTrials() {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchTrials();
+        const data = await trialService.fetchTrials();
         if (mounted) setTrials(Array.isArray(data) ? data : []);
       } catch (err: any) {
         if (mounted) setError(err?.message ?? "Failed to load trials");
@@ -43,25 +58,22 @@ const ClinicalTrials = () => {
     };
   }, []);
 
-  // Derive filteredTrials from user inputs: searchQuery, recruitmentStatus, location
   const filteredTrials = trials.filter((trial) => {
     const q = searchQuery.trim().toLowerCase();
 
-    // Search: match title, condition, or description
     if (q) {
       const inTitle = (trial.title ?? "").toLowerCase().includes(q);
       const inCondition = (trial.condition ?? "").toLowerCase().includes(q);
       const inDescription = (trial.description ?? "").toLowerCase().includes(q);
-      if (!inTitle && !inCondition && !inDescription) return false;
+      const inSummary = (trial.summary ?? "").toLowerCase().includes(q);
+      if (!inTitle && !inCondition && !inDescription && !inSummary) return false;
     }
 
-    // Recruitment status filter
     if (recruitmentStatus !== "all") {
-      const status = (trial.recruitmentStatus ?? trial.status ?? "").toLowerCase();
-      if (status !== recruitmentStatus.toLowerCase()) return false;
+      const trialStatus = trial.recruiting === true ? "recruiting" : "completed";
+      if (trialStatus !== recruitmentStatus.toLowerCase()) return false;
     }
 
-    // Location filter: match city/state/site fields if present
     if (location.trim()) {
       const loc = (trial.location ?? trial.site ?? "").toLowerCase();
       if (!loc.includes(location.trim().toLowerCase())) return false;
@@ -115,20 +127,18 @@ const ClinicalTrials = () => {
             </p>
           </div>
 
-          {/* Search and Filters */}
           <div className="mb-8 space-y-4">
             <div className="flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
-                  placeholder="Search for trials (e.g., Lung Cancer Immunotherapy Trials)"
+                  placeholder="Search for trials..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
 
-              {/* Mobile Filter Sheet */}
               <Sheet>
                 <SheetTrigger asChild className="md:hidden">
                   <Button variant="outline" size="icon">
@@ -146,29 +156,41 @@ const ClinicalTrials = () => {
               </Sheet>
             </div>
 
-            {/* Desktop Filters */}
-            <div className="hidden md:flex gap-4">
-              <Select value={recruitmentStatus} onValueChange={setRecruitmentStatus}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Recruitment Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Trials</SelectItem>
-                  <SelectItem value="recruiting">Recruiting</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="hidden md:flex gap-4 justify-between">
+              <div className="flex items-center justify-center gap-4">
+                <Select value={recruitmentStatus} onValueChange={setRecruitmentStatus}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Recruitment Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Trials</SelectItem>
+                    <SelectItem value="recruiting">Recruiting</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Input
-                placeholder="Location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-[200px]"
-              />
+                <Input
+                  placeholder="Location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-[200px]"
+                />
+              </div>
+
+              {/* Add Trial */}
+             {role != "0" ? <AddTrialModal
+                onSuccess={async () => {
+                  try {
+                    const data = await trialService.fetchTrials();
+                    setTrials(Array.isArray(data) ? data : []);
+                  } catch (err: any) {
+                    console.error("Failed to refresh trials:", err);
+                  }
+                }}
+              /> : ""}
             </div>
           </div>
 
-          {/* Results */}
           <div className="space-y-4">
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading clinical trials...</p>
@@ -176,14 +198,18 @@ const ClinicalTrials = () => {
               <p className="text-sm text-destructive">Error loading trials: {error}</p>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">Found {filteredTrials.length} clinical trials</p>
+                <p className="text-sm text-muted-foreground">
+                  Found {filteredTrials.length} clinical trials
+                </p>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredTrials.map((trial, i) => (
                     <TrialCard
                       key={trial.id ?? i}
                       {...trial}
-                      isFavorite={isFavorite(trial.id, 'trial')}
-                      onToggleFavorite={() => toggleFavorite(trial.id, 'trial', trial)}
+                      isFavorite={isFavorite(trial.id, "trial")}
+                      onToggleFavorite={() =>
+                        toggleFavorite(trial.id, "trial", trial)
+                      }
                       onViewDetails={() => setSelectedTrial(trial)}
                     />
                   ))}
@@ -193,10 +219,35 @@ const ClinicalTrials = () => {
           </div>
         </div>
       </main>
+
       <TrialDetailsModal
         open={!!selectedTrial}
         onOpenChange={(open) => !open && setSelectedTrial(null)}
         trial={selectedTrial}
+        onDelete={async () => {
+          try {
+            const data = await trialService.fetchTrials();
+            setTrials(Array.isArray(data) ? data : []);
+            setSelectedTrial(null);
+          } catch (err: any) {
+            console.error("Failed to refresh trials:", err);
+          }
+        }}
+        onUpdate={async () => {
+          try {
+            const data = await trialService.fetchTrials();
+            setTrials(Array.isArray(data) ? data : []);
+            // Update selected trial with fresh data
+            if (selectedTrial?.id) {
+              const updatedTrial = data.find((t: any) => t.id === selectedTrial.id);
+              if (updatedTrial) {
+                setSelectedTrial(updatedTrial);
+              }
+            }
+          } catch (err: any) {
+            console.error("Failed to refresh trials:", err);
+          }
+        }}
       />
     </div>
   );

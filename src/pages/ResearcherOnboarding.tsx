@@ -11,8 +11,9 @@ import { authService } from "@/services/authService";
 import { toast } from "react-toastify";
 import { researcherService } from "@/services/researcherService";
 import axios from "axios";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const API_URL = getApiBaseUrl();
 
 const ResearcherOnboarding = () => {
   const navigate = useNavigate();
@@ -35,10 +36,10 @@ const ResearcherOnboarding = () => {
         const { latitude, longitude } = position.coords;
 
         try {
-          const response = await fetch(
+          const response = await axios.get(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
           );
-          const data = await response.json();
+          const data = response.data;
 
           const locationString = data.address
             ? `${data.address.city || data.address.town || data.address.village || ""}, ${data.address.state || ""

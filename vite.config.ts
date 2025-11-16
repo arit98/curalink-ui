@@ -9,10 +9,11 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      "/favourites": {
-        target: "http://localhost:8000/api/v1",
+      "/api": {
+        target: "http://localhost:8000",
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path,
       }
     }
     },

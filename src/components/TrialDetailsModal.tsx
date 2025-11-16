@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -8,12 +9,26 @@ import {
   import { Button } from "@/components/ui/button";
   import { Badge } from "@/components/ui/badge";
   import { Separator } from "@/components/ui/separator";
-  import { MapPin, Calendar, Users, Mail, Phone, Building } from "lucide-react";
+  import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+  } from "@/components/ui/alert-dialog";
+  import { MapPin, Calendar, Users, Mail, Phone, Building, Trash2, Edit } from "lucide-react";
+  import { trialService } from "@/services/trialService";
+  import { useToast } from "@/hooks/use-toast";
+  import { EditTrialModal } from "@/components/EditTrialModal";
   
   interface TrialDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     trial: {
+      id?: string | number;
       title: string;
       phase: string;
       location: string;
@@ -29,14 +44,54 @@ import {
       institution?: string;
       enrollment?: string;
     } | null;
+    onDelete?: () => void;
+    onUpdate?: () => void;
   }
   
-  export const TrialDetailsModal = ({ open, onOpenChange, trial }: TrialDetailsModalProps) => {
+  export const TrialDetailsModal = ({ open, onOpenChange, trial, onDelete, onUpdate }: TrialDetailsModalProps) => {
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const { toast } = useToast();
+
     if (!trial) return null;
+
+    const handleDelete = async () => {
+      if (!trial.id) {
+        toast({
+          title: "Error",
+          description: "Trial ID is missing. Cannot delete trial.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsDeleting(true);
+      try {
+        await trialService.deleteTrial(trial.id);
+        toast({
+          title: "Success",
+          description: "Trial deleted successfully.",
+        });
+        setShowDeleteDialog(false);
+        onOpenChange(false);
+        if (onDelete) {
+          onDelete();
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.response?.data?.message || "Failed to delete trial. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDeleting(false);
+      }
+    };
   
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pt-11">
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <DialogTitle className="text-xl font-bold pr-8">{trial.title}</DialogTitle>
@@ -140,9 +195,59 @@ import {
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button className="flex-1">Express Interest</Button>
               <Button variant="outline" className="flex-1">Save to Favorites</Button>
+              {onUpdate && trial.id && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditModal(true)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && trial.id && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the clinical trial "{trial.title}".
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Edit Trial Modal */}
+        <EditTrialModal
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          trial={trial}
+          onSuccess={() => {
+            if (onUpdate) {
+              onUpdate();
+            }
+          }}
+        />
       </Dialog>
     );
   };

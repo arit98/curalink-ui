@@ -4,60 +4,215 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { colorPool } from "@/lib/helper";
+import axios from "axios";
+import { getApiBaseUrl } from "@/lib/apiConfig";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { DiscussionModal } from "@/components/Discussion Modal";
 
 const Forums = () => {
-  const categories = [
-    { name: "Cancer Research", posts: 142, color: "bg-primary" },
-    { name: "Clinical Trials", posts: 89, color: "bg-secondary" },
-    { name: "Treatment Options", posts: 234, color: "bg-primary" },
-    { name: "Patient Support", posts: 567, color: "bg-secondary" },
-  ];
+  const [categories, setCategories] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
 
-  const posts = [
-    {
-      id: 1,
-      title: "New immunotherapy combination showing promising results",
-      author: "Dr. Sarah Chen",
-      role: "Researcher",
-      category: "Cancer Research",
-      replies: 24,
-      preview: "Recent data from our Phase 2 trial indicates that combining checkpoint inhibitors with targeted therapy may improve outcomes...",
-      timestamp: "2 hours ago",
-    },
-    {
-      id: 2,
-      title: "Questions about eligibility criteria for CAR-T trials",
-      author: "Patient Alex",
-      role: "Patient",
-      category: "Clinical Trials",
-      replies: 12,
-      preview: "I've been diagnosed with glioblastoma and wondering if I would qualify for CAR-T cell therapy trials...",
-      timestamp: "5 hours ago",
-    },
-    {
-      id: 3,
-      title: "Understanding biomarker testing for precision medicine",
-      author: "Dr. Michael Rodriguez",
-      role: "Researcher",
-      category: "Treatment Options",
-      replies: 31,
-      preview: "Comprehensive guide on how biomarker testing helps match patients with targeted therapies based on tumor characteristics...",
-      timestamp: "1 day ago",
-    },
-    {
-      id: 4,
-      title: "Managing side effects of immunotherapy",
-      author: "Patient Jordan",
-      role: "Patient",
-      category: "Patient Support",
-      replies: 45,
-      preview: "I'm currently on pembrolizumab and experiencing some fatigue. What strategies have helped others manage these side effects?",
-      timestamp: "1 day ago",
-    },
-  ];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+
+  const [form, setForm] = useState({
+    title: "",
+    author: "",
+    role: "",
+    category_id: "",
+    preview: "",
+  });
+
+  const timeAgo = (timestamp: string) => {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diff = (now.getTime() - past.getTime()) / 1000;
+
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(
+        `${getApiBaseUrl()}/forums/categories`
+      );
+      const data = response.data;
+
+      const enhanced = data.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        posts: cat.total_posts ?? 0,
+        color: colorPool[Math.floor(Math.random() * colorPool.length)],
+      }));
+
+      setCategories(enhanced);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      const response = await axios.get(
+        `${getApiBaseUrl()}/forums/posts`
+      );
+      const data = response.data;
+
+      const merged = data.map((post: any) => {
+        const category = categories.find((c: any) => c.id === post.category_id);
+        return {
+          ...post,
+          categoryName: category ? category.name : null,
+          timestampText: timeAgo(post.timestamp),
+        };
+      });
+
+      // Filter out posts with no valid category
+      const validPosts = merged.filter((post: any) => post.categoryName !== null);
+      setPosts(validPosts);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    // Only fetch posts after categories are loaded
+    if (categories.length > 0) {
+      fetchPosts();
+    }
+  }, [categories]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* -------- MODAL FOR CREATE POST -------- */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Post</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Enter post title"
+              />
+            </div>
+
+            <div>
+              <Label>Author</Label>
+              <Input
+                value={form.author}
+                onChange={(e) => setForm({ ...form, author: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div>
+              <Label>Role</Label>
+              <Input
+                readOnly
+                type="string"
+                value={localStorage.getItem("role") === "0" ? "Patient" : "Researcher"}
+                placeholder="1"
+              />
+            </div>
+
+            <div>
+              <Label>Category</Label>
+              <select
+                className="border rounded-md w-full p-2"
+                value={form.category_id}
+                onChange={(e) =>
+                  // @ts-ignore
+                  setForm({ ...form, category_id: Number(e.target.value) })
+                }
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Preview Text</Label>
+              <Textarea
+                value={form.preview}
+                onChange={(e) =>
+                  setForm({ ...form, preview: e.target.value })
+                }
+                placeholder="Short description..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={async () => {
+                const body = {
+                  ...form,
+                  role: localStorage.getItem("role") === "0" ? "patient" : "researcher",
+                  replies: 0,
+                };
+
+                try {
+                  await axios.post(
+                    `${getApiBaseUrl()}/forums/posts`,
+                    body,
+                    {
+                      headers: { "Content-Type": "application/json" },
+                    }
+                  );
+
+                  setOpen(false);
+                  setForm({
+                    title: "",
+                    author: "",
+                    role: "",
+                    category_id: "",
+                    preview: "",
+                  });
+                  fetchPosts();
+                } catch (error) {
+                  console.error("Error creating post:", error);
+                }
+              }}
+            >
+              Submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* -------- END MODAL -------- */}
+
       <Navbar showSearch />
 
       <main className="flex-1">
@@ -79,17 +234,37 @@ const Forums = () => {
                   <CardTitle className="text-lg">Categories</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {categories.map((category) => (
-                    <Button
-                      key={category.name}
-                      variant="ghost"
-                      className="w-full justify-start"
-                    >
-                      <div className={`h-2 w-2 rounded-full ${category.color} mr-2`} />
-                      <span className="flex-1 text-left">{category.name}</span>
-                      <span className="text-xs text-muted-foreground">{category.posts}</span>
-                    </Button>
-                  ))}
+                  <Button
+                    variant={selectedCategoryId === null ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSelectedCategoryId(null)}
+                  >
+                    <span className="flex-1 text-left font-medium">All Categories</span>
+                    <span className="text-xs text-muted-foreground">
+                      {posts.length}
+                    </span>
+                  </Button>
+                  {categories.map((category) => {
+                    const postCount = posts.filter((post) => post.category_id === category.id).length;
+                    return (
+                      <Button
+                        key={category.id}
+                        variant={selectedCategoryId === category.id ? "default" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => setSelectedCategoryId(category.id)}
+                      >
+                        <div
+                          className={`h-2 w-2 rounded-full ${category.color} mr-2`}
+                        />
+                        <span className="flex-1 text-left">
+                          {category.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {postCount}
+                        </span>
+                      </Button>
+                    );
+                  })}
                 </CardContent>
               </Card>
 
@@ -103,15 +278,27 @@ const Forums = () => {
                 <CardContent className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Total Posts</span>
-                    <span className="font-semibold">1,032</span>
+                    <span className="font-semibold text-muted-foreground">
+                      {posts.length.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Active Users</span>
-                    <span className="font-semibold">423</span>
+                    <span className="font-semibold text-muted-foreground">
+                      {new Set(posts.map((post) => post.author)).size.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Researchers</span>
-                    <span className="font-semibold">87</span>
+                    <span className="font-semibold text-muted-foreground">
+                      {new Set(
+                        posts
+                          .filter((post) =>
+                            post.role?.toLowerCase?.().includes("researcher")
+                          )
+                          .map((post) => post.author)
+                      ).size.toLocaleString()}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -120,22 +307,31 @@ const Forums = () => {
             {/* Main Content - Posts */}
             <div className="lg:col-span-3 space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-foreground">Recent Discussions</h2>
-                <Button>New Post</Button>
+                <h2 className="text-xl font-semibold text-foreground">
+                  Recent Discussions
+                </h2>
+                <Button onClick={() => setOpen(true)}>New Post</Button>
               </div>
 
-              {posts.map((post) => (
+              {posts
+                .filter((post) => 
+                  selectedCategoryId === null || post.category_id === selectedCategoryId
+                )
+                .map((post) => (
                 <Card key={post.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-3 flex-1">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback className="bg-primary/10 text-primary">
-                            {post.author.charAt(0)}
+                            {post.author?.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base mb-1">{post.title}</CardTitle>
+                          <CardTitle className="text-base mb-1">
+                            {post.title}
+                          </CardTitle>
+
                           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                             <span className="font-medium">{post.author}</span>
                             <Badge variant="outline" className="text-xs">
@@ -146,9 +342,12 @@ const Forums = () => {
                           </div>
                         </div>
                       </div>
-                      <Badge variant="secondary">{post.category}</Badge>
+                      {(post.category || post.categoryName) && (
+                        <Badge variant="default">{post.category || post.categoryName}</Badge>
+                      )}
                     </div>
                   </CardHeader>
+
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {post.preview}
@@ -158,7 +357,12 @@ const Forums = () => {
                         <MessageSquare className="h-4 w-4 mr-1" />
                         <span>{post.replies} replies from researchers</span>
                       </div>
-                      <Button variant="outline" size="sm">View Discussion</Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setSelectedPost(post);
+                        setIsModalOpen(true);
+                      }}>
+                        View Discussion
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -167,6 +371,22 @@ const Forums = () => {
           </div>
         </div>
       </main>
+
+      <DiscussionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        postId={selectedPost?.id || null}
+        onPostDeleted={() => {
+          fetchPosts();
+        }}
+        onReplyAdded={(postId, replyCount) => {
+          setPosts((prevPosts) =>
+            prevPosts.map((post) =>
+              post.id === postId ? { ...post, replies: replyCount } : post
+            )
+          );
+        }}
+      />
     </div>
   );
 };

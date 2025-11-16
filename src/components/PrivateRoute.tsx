@@ -25,7 +25,7 @@ const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
     const decoded = jwtDecode<JWTPayload>(token);
 
     if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      localStorage.removeItem("token");
+      localStorage.clear();
       return <Navigate to="/" state={{ from: location }} replace />;
     }
 
@@ -34,7 +34,7 @@ const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
 
     if (userRole == null || Number.isNaN(userRole)) {
       // Unknown or invalid role: treat as unauthenticated
-      localStorage.removeItem("token");
+      localStorage.clear();
       return <Navigate to="/" state={{ from: location }} replace />;
     }
 
@@ -45,7 +45,7 @@ const PrivateRoute = ({ children, allowedRoles }: PrivateRouteProps) => {
     return <>{children}</>;
   } catch (err) {
     console.error("Invalid token:", err);
-    localStorage.removeItem("token");
+    localStorage.clear();
     return <Navigate to="/" replace />;
   }
 };

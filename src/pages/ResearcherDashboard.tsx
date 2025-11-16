@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronRight, Users, FileText, FlaskConical, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { fetchTrials } from "@/services/trialService";
-import { fetchAllPublications } from "@/services/publicationService";
+import { trialService } from "@/services/trialService";
+import { publicationService } from "@/services/publicationService";
 import { authService } from "@/services/authService";
 import { useFavorites } from "@/hooks/useFavorites";
 
@@ -23,6 +23,7 @@ const ResearcherDashboard = () => {
   const [selectedTrial, setSelectedTrial] = useState<any | null>(null);
   const [selectedPublication, setSelectedPublication] = useState<any | null>(null);
   const [trials, setTrials] = useState<any[]>([]);
+  const [allTrials, setAllTrials] = useState<any[]>([]);
   const [trialsLoading, setTrialsLoading] = useState(false);
   const [trialsError, setTrialsError] = useState<string | null>(null);
 
@@ -36,8 +37,13 @@ const ResearcherDashboard = () => {
     const load = async () => {
       setTrialsLoading(true);
       try {
-        const data = await fetchTrials();
-        const activeTrials = Array.isArray(data) ? data.filter((d) => d?.status === "recruiting") : [];
+        const data = await trialService.fetchTrials();
+        const allTrialsData = Array.isArray(data) ? data : [];
+        setAllTrials(allTrialsData);
+        const activeTrials = allTrialsData.filter((d) => {
+          const status = (d?.status || "").toLowerCase();
+          return status === "active";
+        });
         setTrials(activeTrials);
         // console.log("Data ", data);
       } catch (err: any) {
@@ -53,7 +59,7 @@ const ResearcherDashboard = () => {
     const loadPublications = async () => {
       setPublicationsLoading(true);
       try {
-        const data = await fetchAllPublications();
+        const data = await publicationService.fetchAllPublications();
         const recentPublications = Array.isArray(data) ? data.filter((d) => d?.year === "2025" || d?.year === "2024") : [];
         setPublications(recentPublications);
       } catch (err: any) {
@@ -68,7 +74,10 @@ const ResearcherDashboard = () => {
   const stats = [
     {
       title: "Active Trials",
-      value: "12",
+      value: trials.filter(t => {
+        const status = (t?.status || "").toLowerCase();
+        return status === "active";
+      }).length,
       change: "+3 this month",
       icon: FlaskConical,
     },
@@ -80,7 +89,7 @@ const ResearcherDashboard = () => {
     },
     {
       title: "Publications",
-      value: "28",
+      value: publications.length,
       change: "+5 this quarter",
       icon: FileText,
     },
@@ -97,8 +106,6 @@ const ResearcherDashboard = () => {
       try {
         const user = await authService.fetchUserById(userId);
         setUserDetails(user);
-        // Log fetched user's name to console for debugging
-        // console.log("Fetched user name:", user?.name);
       } catch (err) {
         console.error("Failed to fetch user", err);
       }
@@ -291,10 +298,10 @@ const ResearcherDashboard = () => {
                   <div>Loading trials...</div>
                 ) : trialsError ? (
                   <div className="text-red-500">Error loading trials: {trialsError}</div>
-                ) : trials.length === 0 ? (
+                ) : allTrials.length === 0 ? (
                   <div>No trials found.</div>
                 ) : (
-                  trials.map((trial) => (
+                  allTrials.map((trial) => (
                     <TrialCard
                       key={trial.id ?? trial.title}
                       {...trial}
@@ -348,6 +355,42 @@ const ResearcherDashboard = () => {
         open={!!selectedTrial}
         onOpenChange={(open) => !open && setSelectedTrial(null)}
         trial={selectedTrial}
+        onDelete={async () => {
+          try {
+            const data = await trialService.fetchTrials();
+            const allTrialsData = Array.isArray(data) ? data : [];
+            setAllTrials(allTrialsData);
+            const activeTrials = allTrialsData.filter((d) => {
+              const status = (d?.status || "").toLowerCase();
+              return status === "active";
+            });
+            setTrials(activeTrials);
+            setSelectedTrial(null);
+          } catch (err: any) {
+            console.error("Failed to refresh trials:", err);
+          }
+        }}
+        onUpdate={async () => {
+          try {
+            const data = await trialService.fetchTrials();
+            const allTrialsData = Array.isArray(data) ? data : [];
+            setAllTrials(allTrialsData);
+            const activeTrials = allTrialsData.filter((d) => {
+              const status = (d?.status || "").toLowerCase();
+              return status === "active";
+            });
+            setTrials(activeTrials);
+            // Update selected trial with fresh data
+            if (selectedTrial?.id) {
+              const updatedTrial = allTrialsData.find((t: any) => t.id === selectedTrial.id);
+              if (updatedTrial) {
+                setSelectedTrial(updatedTrial);
+              }
+            }
+          } catch (err: any) {
+            console.error("Failed to refresh trials:", err);
+          }
+        }}
       />
       <PublicationDetailsModal
         open={!!selectedPublication}

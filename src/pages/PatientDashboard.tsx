@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { fetchTrials } from "@/services/trialService";
+import { trialService } from "@/services/trialService";
 import { fetchExperts } from "@/services/expertService";
 import { authService } from "@/services/authService";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -37,7 +37,7 @@ const PatientDashboard = () => {
     const load = async () => {
       setTrialsLoading(true);
       try {
-        const data = await fetchTrials();
+        const data = await trialService.fetchTrials();
         setTrials(data);
       } catch (err: any) {
         setTrialsError(err.message || "Failed to load trials");

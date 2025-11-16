@@ -28,7 +28,7 @@ const Index = () => {
                   <Button 
                     size="lg" 
                     className="text-lg px-8"
-                    onClick={() => navigate("/user")}
+                    onClick={() => navigate("/user?mode=register&role=0")}
                   >
                     I'm a Patient or Caregiver
                   </Button>
@@ -36,7 +36,7 @@ const Index = () => {
                     size="lg" 
                     variant="outline"
                     className="text-lg px-8"
-                    onClick={() => navigate("/user")}
+                    onClick={() => navigate("/user?mode=register&role=1")}
                   >
                     I'm a Researcher
                   </Button>

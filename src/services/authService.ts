@@ -1,3 +1,5 @@
+import axios from 'axios';
+import { getApiBaseUrl } from '@/lib/apiConfig';
 
 interface LoginCredentials {
   email: string;
@@ -21,26 +23,17 @@ interface AuthResponse {
   has_onboarded?: boolean;
 }
 
-const API_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = getApiBaseUrl();
 
 export const authService = {
   // ---------------- LOGIN ----------------
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
+      const response = await axios.post(`${API_URL}/auth/login`, credentials, {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: data.message || 'Login failed',
-        };
-      }
+      const data = response.data;
 
       const token = data.token || data.access_token || null;
       if (token) localStorage.setItem('token', token);
@@ -50,10 +43,11 @@ export const authService = {
 
       const id = String(data.id || data.user?.id || '');
       const role = Number(data.role ?? data.user?.role ?? 0);
-      const has_onboarded = Boolean(data.has_onboarded ?? false); // <-- extract from backend
+      const has_onboarded = Boolean(data.has_onboarded ?? false);
 
       if (id) localStorage.setItem('userId', id);
       localStorage.setItem('role', String(role));
+      if (data?.user?.name) localStorage.setItem('username', data.user.name);
 
       return {
         success: true,
@@ -63,11 +57,11 @@ export const authService = {
         user: data.user,
         has_onboarded, // <-- return to frontend
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       return {
         success: false,
-        message: 'Network error occurred',
+        message: error.response?.data?.message || error.message || 'Network error occurred',
       };
     }
   },
@@ -82,20 +76,11 @@ export const authService = {
         role: Number(credentials.role),
       };
 
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
+      const response = await axios.post(`${API_URL}/auth/register`, payload, {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: data.message || 'Registration failed',
-        };
-      }
+      const data = response.data;
 
       const token = data.token || data.access_token || null;
       if (token) localStorage.setItem('token', token);
@@ -112,11 +97,11 @@ export const authService = {
         role,
         user: data.user,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Register error:', error);
       return {
         success: false,
-        message: 'Network error occurred',
+        message: error.response?.data?.message || error.message || 'Network error occurred',
       };
     }
   },
@@ -150,13 +135,10 @@ export const authService = {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_URL}/auth/${encodeURIComponent(id)}`, {
-      method: 'GET',
+    const response = await axios.get(`${API_URL}/auth/${encodeURIComponent(id)}`, {
       headers,
     });
 
-    if (!res.ok) throw new Error(`Failed to fetch user ${id}: HTTP ${res.status}`);
-
-    return await res.json();
+    return response.data;
   },
 };
