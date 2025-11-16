@@ -6,6 +6,7 @@ import { publicationService } from "@/services/publicationService";
 import { PublicationCard } from "@/components/PublicationCard";
 import { useFavorites } from "@/hooks/useFavorites";
 import { PublicationDetailsModal } from "@/components/PublicationDetailsModal";
+import { CreatePublicationModal } from "@/components/CreatePublicationModal";
 
 const Publications = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -15,22 +16,25 @@ const Publications = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const loadPublications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await publicationService.fetchAllPublications();
+      setPublications(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load publications");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
-    async function loadPublications() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await publicationService.fetchAllPublications();
-        if (mounted) setPublications(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        if (mounted) setError(err?.message ?? "Failed to load publications");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    async function load() {
+      await loadPublications();
     }
-
-    loadPublications();
+    load();
     return () => {
       mounted = false;
     };
@@ -52,9 +56,12 @@ const Publications = () => {
 
       <main className="flex-1">
         <div className="container py-8">
-          <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Publications</h1>
-            <p className="text-muted-foreground">Browse research publications and medical literature.</p>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Publications</h1>
+              <p className="text-muted-foreground">Browse research publications and medical literature.</p>
+            </div>
+            <CreatePublicationModal onSuccess={loadPublications} />
           </div>
 
           <div className="mb-6">

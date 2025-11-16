@@ -70,12 +70,12 @@ import {
               </p>
             </div>
   
-            {/* Methodology */}
+            {/* Introduction */}
             {publication.methodology && (
               <>
                 <Separator />
                 <div>
-                  <h3 className="font-semibold mb-2">Methodology</h3>
+                  <h3 className="font-semibold mb-2">Introduction</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {publication.methodology}
                   </p>

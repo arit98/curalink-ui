@@ -13,6 +13,7 @@ import { trialService } from "@/services/trialService";
 import { publicationService } from "@/services/publicationService";
 import { authService } from "@/services/authService";
 import { useFavorites } from "@/hooks/useFavorites";
+import { CreatePublicationModal } from "@/components/CreatePublicationModal";
 
 const ResearcherDashboard = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -319,6 +320,17 @@ const ResearcherDashboard = () => {
                 <h2 className="text-2xl font-semibold text-foreground">
                   All Publications
                 </h2>
+                <CreatePublicationModal
+                  onSuccess={async () => {
+                    try {
+                      const data = await publicationService.fetchAllPublications();
+                      const recentPublications = Array.isArray(data) ? data.filter((d) => d?.year === "2025" || d?.year === "2024") : [];
+                      setPublications(recentPublications);
+                    } catch (err: any) {
+                      console.error("Failed to refresh publications:", err);
+                    }
+                  }}
+                />
               </div>
               <div className="grid md:grid-cols-2 gap-6">
                 {publicationsLoading ? (
