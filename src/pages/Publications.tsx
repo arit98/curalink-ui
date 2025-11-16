@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { fetchAllPublications } from "@/services/publicationService";
+import { publicationService } from "@/services/publicationService";
 import { PublicationCard } from "@/components/PublicationCard";
 import { useFavorites } from "@/hooks/useFavorites";
 import { PublicationDetailsModal } from "@/components/PublicationDetailsModal";
@@ -21,7 +21,7 @@ const Publications = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchAllPublications();
+        const data = await publicationService.fetchAllPublications();
         if (mounted) setPublications(Array.isArray(data) ? data : []);
       } catch (err: any) {
         if (mounted) setError(err?.message ?? "Failed to load publications");
