@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export type FavoriteType = 'trial' | 'expert' | 'publication';
+export type FavoriteType = 'trial' | 'expert' | 'publication' | 'forum';
 
 interface FavoriteItem {
   id: string | number;

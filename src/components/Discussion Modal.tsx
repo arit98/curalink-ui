@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Trash2, Send, ThumbsUp, Pencil } from "lucide-react";
+import { Mail, Trash2, Send, ThumbsUp, Pencil, Heart } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -44,11 +44,13 @@ interface DiscussionModalProps {
   isOpen: boolean;
   onClose: () => void;
   postId: number | null;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
   onPostDeleted?: () => void;
   onReplyAdded?: (postId: number, replyCount: number) => void;
 }
 
-export const DiscussionModal = ({ isOpen, onClose, postId, onPostDeleted, onReplyAdded }: DiscussionModalProps) => {
+export const DiscussionModal = ({ isOpen, onClose, postId, isFavorite = false, onToggleFavorite, onPostDeleted, onReplyAdded }: DiscussionModalProps) => {
   const [post, setPost] = useState<any | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyText, setReplyText] = useState("");
@@ -58,6 +60,13 @@ export const DiscussionModal = ({ isOpen, onClose, postId, onPostDeleted, onRepl
   const [editPostPreview, setEditPostPreview] = useState("");
 
   const BASE_URL = getApiBaseUrl();
+  
+  // Get current user info - compare case-insensitively and trim whitespace
+  const currentUsername = useMemo(() => (localStorage.getItem("username") || "").trim(), []);
+  const isPostAuthor = useMemo(() => {
+    if (!post?.author || !currentUsername) return false;
+    return post.author.trim().toLowerCase() === currentUsername.toLowerCase();
+  }, [post?.author, currentUsername]);
 
   const fetchPostDetails = async () => {
     if (!postId) return;
@@ -304,26 +313,35 @@ export const DiscussionModal = ({ isOpen, onClose, postId, onPostDeleted, onRepl
 
             {!isEditingPost && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 hover:text-yellow-500 hover:bg-yellow-500/10"
-                  onClick={() => setIsEditingPost(true)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                {isPostAuthor && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 hover:text-yellow-500 hover:bg-yellow-500/10"
+                      onClick={() => setIsEditingPost(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 hover:text-red-500 hover:bg-red-500/10"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 hover:text-red-500 hover:bg-red-500/10"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
 
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ThumbsUp className="h-4 w-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={onToggleFavorite}
+                >
+                  <Heart className={`h-4 w-4 ${isFavorite ? 'fill-destructive text-destructive' : ''}`} />
                 </Button>
               </>
             )}
@@ -396,31 +414,33 @@ export const DiscussionModal = ({ isOpen, onClose, postId, onPostDeleted, onRepl
                     <p className="text-sm mt-1">{reply.content}</p>
                   )}
 
-                  <div className="flex gap-3 mt-2">
-                    <Button
-                      variant="ghost"
-                      className="text-xs px-2"
-                      onClick={() =>
-                        setReplies((prev) =>
-                          prev.map((r) =>
-                            r.id === reply.id
-                              ? { ...r, editing: true, editText: r.content }
-                              : r
+                  {reply.author?.trim().toLowerCase() === currentUsername.toLowerCase() && (
+                    <div className="flex gap-3 mt-2">
+                      <Button
+                        variant="ghost"
+                        className="text-xs px-2"
+                        onClick={() =>
+                          setReplies((prev) =>
+                            prev.map((r) =>
+                              r.id === reply.id
+                                ? { ...r, editing: true, editText: r.content }
+                                : r
+                            )
                           )
-                        )
-                      }
-                    >
-                      Edit
-                    </Button>
+                        }
+                      >
+                        Edit
+                      </Button>
 
-                    <Button
-                      variant="ghost"
-                      className="text-xs text-red-500 px-2"
-                      onClick={() => deleteReply(reply.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                      <Button
+                        variant="ghost"
+                        className="text-xs text-red-500 px-2"
+                        onClick={() => deleteReply(reply.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

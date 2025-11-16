@@ -12,8 +12,12 @@ import { useNavigate } from "react-router-dom";
 import { trialService } from "@/services/trialService";
 import { publicationService } from "@/services/publicationService";
 import { authService } from "@/services/authService";
+import { researcherService } from "@/services/researcherService";
 import { useFavorites } from "@/hooks/useFavorites";
 import { CreatePublicationModal } from "@/components/CreatePublicationModal";
+import { DiscussionModal } from "@/components/Discussion Modal";
+import axios from "axios";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 const ResearcherDashboard = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -31,6 +35,16 @@ const ResearcherDashboard = () => {
   const [publications, setPublications] = useState<any[]>([]);
   const [publicationsLoading, setPublicationsLoading] = useState(false);
   const [publicationsError, setPublicationsError] = useState<string | null>(null);
+
+  const [patients, setPatients] = useState<any[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
+
+  const [forumReplies, setForumReplies] = useState<any[]>([]);
+  const [forumRepliesLoading, setForumRepliesLoading] = useState(false);
+
+  const [isDiscussionModalOpen, setIsDiscussionModalOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
 
   const [userDetails, setUserDetails] = useState<any>();
 
@@ -72,6 +86,22 @@ const ResearcherDashboard = () => {
     loadPublications();
   }, []);
 
+  useEffect(() => {
+    const loadPatients = async () => {
+      setPatientsLoading(true);
+      try {
+        const data = await researcherService.fetchPatientsInterested();
+        setPatients(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        setPatientsError(err.message || "Failed to load patients");
+        console.error("Error loading patients:", err);
+      } finally {
+        setPatientsLoading(false);
+      }
+    };
+    loadPatients();
+  }, []);
+
   const stats = [
     {
       title: "Active Trials",
@@ -84,7 +114,7 @@ const ResearcherDashboard = () => {
     },
     {
       title: "Total Patients",
-      value: "847",
+      value: patientsLoading ? "..." : patients.length.toString(),
       change: "+124 this month",
       icon: Users,
     },
@@ -112,6 +142,80 @@ const ResearcherDashboard = () => {
       }
     };
     fetchUser();
+  }, []);
+
+  const timeAgo = (timestamp: string) => {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diff = (now.getTime() - past.getTime()) / 1000;
+
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+    return `${Math.floor(diff / 604800)} weeks ago`;
+  };
+
+  const fetchForumReplies = async () => {
+    setForumRepliesLoading(true);
+    try {
+      const BASE_URL = getApiBaseUrl();
+      
+      // Fetch categories first to get category names
+      const categoriesResponse = await axios.get(`${BASE_URL}/forums/categories`);
+      const categories = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [];
+      
+      // Fetch all forum posts
+      const postsResponse = await axios.get(`${BASE_URL}/forums/posts`);
+      const posts = Array.isArray(postsResponse.data) ? postsResponse.data : [];
+      
+      // Fetch replies for each post
+      const allReplies: any[] = [];
+      for (const post of posts) {
+        try {
+          const repliesResponse = await axios.get(`${BASE_URL}/forums/posts/${post.id}/replies`);
+          const replies = Array.isArray(repliesResponse.data) ? repliesResponse.data : [];
+          
+          // Find category name for this post
+          const category = categories.find((c: any) => c.id === post.category_id);
+          const categoryName = category?.name || post.category || post.categoryName || "General";
+          
+          // Add post information to each reply
+          replies.forEach((reply: any) => {
+            allReplies.push({
+              ...reply,
+              postId: post.id,
+              postTitle: post.title,
+              postCategory: categoryName,
+            });
+          });
+        } catch (err) {
+          // Skip posts with no replies or errors
+          console.error(`Error fetching replies for post ${post.id}:`, err);
+        }
+      }
+      
+      // Randomly shuffle and select up to 5 replies
+      const shuffled = allReplies.sort(() => Math.random() - 0.5);
+      const selectedReplies = shuffled.slice(0, 5).map((reply: any) => ({
+        name: reply.author || "Anonymous",
+        condition: reply.postCategory || reply.postTitle || "General Discussion",
+        message: reply.content || "",
+        time: timeAgo(reply.timestamp || new Date().toISOString()),
+        postId: reply.postId,
+      }));
+      
+      setForumReplies(selectedReplies);
+    } catch (err) {
+      console.error("Error fetching forum replies:", err);
+      setForumReplies([]);
+    } finally {
+      setForumRepliesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchForumReplies();
   }, []);
 
   return (
@@ -238,32 +342,14 @@ const ResearcherDashboard = () => {
                   <h2 className="text-2xl font-semibold text-foreground">
                     Recent Patient Inquiries
                   </h2>
-                  <Button variant="ghost">
-                    View All
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
                 </div>
                 <div className="space-y-4">
-                  {[
-                    {
-                      name: "Alex Chen",
-                      condition: "Non-Small Cell Lung Cancer",
-                      message: "Interested in the Phase 2 immunotherapy trial...",
-                      time: "2 hours ago",
-                    },
-                    {
-                      name: "Maria Garcia",
-                      condition: "Glioblastoma",
-                      message: "Would like to learn more about CAR-T therapy eligibility...",
-                      time: "5 hours ago",
-                    },
-                    {
-                      name: "John Smith",
-                      condition: "EGFR+ Lung Cancer",
-                      message: "Requesting consultation for targeted therapy trial...",
-                      time: "1 day ago",
-                    },
-                  ].map((inquiry, i) => (
+                  {forumRepliesLoading ? (
+                    <div>Loading inquiries...</div>
+                  ) : forumReplies.length === 0 ? (
+                    <div>No inquiries found.</div>
+                  ) : (
+                    forumReplies.map((inquiry, i) => (
                     <Card key={i}>
                       <CardHeader>
                         <div className="flex items-start justify-between">
@@ -280,10 +366,21 @@ const ResearcherDashboard = () => {
                         <p className="text-sm text-muted-foreground mb-4">
                           {inquiry.message}
                         </p>
-                        <Button size="sm">Respond</Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => {
+                            if (inquiry.postId) {
+                              setSelectedPostId(inquiry.postId);
+                              setIsDiscussionModalOpen(true);
+                            }
+                          }}
+                        >
+                          Respond
+                        </Button>
                       </CardContent>
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </div>
               </section>
             </TabsContent>
@@ -408,6 +505,42 @@ const ResearcherDashboard = () => {
         open={!!selectedPublication}
         onOpenChange={(open) => !open && setSelectedPublication(null)}
         publication={selectedPublication}
+        isFavorite={selectedPublication ? isFavorite(selectedPublication.id, 'publication') : false}
+        onToggleFavorite={() => selectedPublication && toggleFavorite(selectedPublication.id, 'publication', selectedPublication)}
+        onDelete={async () => {
+          setSelectedPublication(null);
+          try {
+            const data = await publicationService.fetchAllPublications();
+            const recentPublications = Array.isArray(data) ? data.filter((d) => d?.year === "2025" || d?.year === "2024") : [];
+            setPublications(recentPublications);
+          } catch (err: any) {
+            console.error("Failed to refresh publications:", err);
+          }
+        }}
+      />
+      <DiscussionModal
+        isOpen={isDiscussionModalOpen}
+        onClose={() => {
+          setIsDiscussionModalOpen(false);
+          setSelectedPostId(null);
+        }}
+        postId={selectedPostId}
+        isFavorite={selectedPostId ? isFavorite(selectedPostId, 'forum') : false}
+        onToggleFavorite={() => {
+          if (selectedPostId) {
+            // Find the post to toggle favorite
+            // We'll need to fetch it or pass it, but for now just toggle by ID
+            toggleFavorite(selectedPostId, 'forum', { id: selectedPostId });
+          }
+        }}
+        onPostDeleted={() => {
+          // Refresh forum replies when a post is deleted
+          fetchForumReplies();
+        }}
+        onReplyAdded={(postId, replyCount) => {
+          // Optionally refresh the replies list
+          console.log(`Reply added to post ${postId}, new count: ${replyCount}`);
+        }}
       />
     </div>
   );

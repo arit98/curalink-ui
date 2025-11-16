@@ -76,6 +76,8 @@ export const CreatePublicationModal = ({
         doi: metadata.doi || prev.doi,
         tags: metadata.tags?.join(", ") || prev.tags,
         introduction: metadata.introduction || prev.introduction,
+        results: metadata.results || prev.results,
+        conclusion: metadata.conclusion || prev.conclusion,
       }));
       
       // Show success message if any data was extracted
@@ -117,7 +119,7 @@ export const CreatePublicationModal = ({
       // Add optional fields if they exist
       if (form.doi) payload.doi = form.doi;
       if (form.fullAbstract) payload.fullAbstract = form.fullAbstract;
-      if (form.introduction) payload.methodology = form.introduction;
+      if (form.introduction) payload.introduction = form.introduction;
       if (form.results) payload.results = form.results;
       if (form.conclusion) payload.conclusion = form.conclusion;
 

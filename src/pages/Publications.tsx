@@ -111,6 +111,12 @@ const Publications = () => {
         open={!!selectedPublication}
         onOpenChange={(open) => !open && setSelectedPublication(null)}
         publication={selectedPublication}
+        isFavorite={selectedPublication ? isFavorite(selectedPublication.id, 'publication') : false}
+        onToggleFavorite={() => selectedPublication && toggleFavorite(selectedPublication.id, 'publication', selectedPublication)}
+        onDelete={() => {
+          loadPublications();
+          setSelectedPublication(null);
+        }}
       />
     </div>
   );

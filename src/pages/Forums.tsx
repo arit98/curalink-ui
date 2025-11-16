@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Users } from "lucide-react";
+import { MessageSquare, Users, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { colorPool } from "@/lib/helper";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { useFavorites } from "@/hooks/useFavorites";
 
 import {
   Dialog,
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { DiscussionModal } from "@/components/Discussion Modal";
 
 const Forums = () => {
+  const { toggleFavorite, isFavorite } = useFavorites();
   const [categories, setCategories] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -342,9 +344,24 @@ const Forums = () => {
                           </div>
                         </div>
                       </div>
-                      {(post.category || post.categoryName) && (
-                        <Badge variant="default">{post.category || post.categoryName}</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {(post.category || post.categoryName) && (
+                          <Badge variant="default">{post.category || post.categoryName}</Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(post.id, 'forum', post);
+                          }}
+                        >
+                          <Heart
+                            className={`h-4 w-4 ${isFavorite(post.id, 'forum') ? 'fill-destructive text-destructive' : ''}`}
+                          />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
 
@@ -376,6 +393,12 @@ const Forums = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         postId={selectedPost?.id || null}
+        isFavorite={selectedPost ? isFavorite(selectedPost.id, 'forum') : false}
+        onToggleFavorite={() => {
+          if (selectedPost) {
+            toggleFavorite(selectedPost.id, 'forum', selectedPost);
+          }
+        }}
         onPostDeleted={() => {
           fetchPosts();
         }}

@@ -27,7 +27,7 @@ export const PublicationCard = ({ title, authors, journal, year, abstract, tags,
             </div>
             <div className="flex-1 min-w-0">
               <CardTitle className="text-base font-semibold line-clamp-2">{title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{authors}</p>
+              <p className="text-sm text-muted-foreground mt-1 h-16 overflow-y-auto scrollbar-thin">{authors}</p>
             </div>
           </div>
           {onToggleFavorite && (
@@ -47,7 +47,7 @@ export const PublicationCard = ({ title, authors, journal, year, abstract, tags,
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 h-24 overflow-y-auto mb-4 scrollbar-thin">
         <div className="text-sm text-muted-foreground">
           <span className="font-medium">{journal}</span> • {year}
         </div>

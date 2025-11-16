@@ -54,6 +54,7 @@ const PatientDashboard = () => {
       try {
         const data = await fetchExperts();
         setExperts(data);
+        console.log("Data: ",data);
       } catch (err: any) {
         setExpertsError(err.message || "Failed to load experts");
       } finally {
@@ -232,6 +233,8 @@ const PatientDashboard = () => {
         open={!!selectedExpert}
         onOpenChange={(open) => !open && setSelectedExpert(null)}
         expert={selectedExpert}
+        isFavorite={selectedExpert ? isFavorite(selectedExpert.id, 'expert') : false}
+        onToggleFavorite={() => selectedExpert && toggleFavorite(selectedExpert.id, 'expert', selectedExpert)}
       />
     </div>
   );

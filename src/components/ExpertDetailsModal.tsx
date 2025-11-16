@@ -9,12 +9,13 @@ import {
   import { Badge } from "@/components/ui/badge";
   import { Avatar, AvatarFallback } from "@/components/ui/avatar";
   import { Separator } from "@/components/ui/separator";
-  import { Mail, Phone, Building, Award, BookOpen } from "lucide-react";
+  import { Mail, Phone, Building, Award, BookOpen, MapPin, User, Heart } from "lucide-react";
   
   interface ExpertDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     expert: {
+      id?: string | number;
       name: string;
       specialty: string;
       institution: string;
@@ -26,10 +27,22 @@ import {
         email: string;
         phone: string;
       };
+      npi?: number;
+      gender?: string;
+      address?: {
+        line1?: string;
+        line2?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        zip?: string;
+      };
     } | null;
+    isFavorite?: boolean;
+    onToggleFavorite?: () => void;
   }
   
-  export const ExpertDetailsModal = ({ open, onOpenChange, expert }: ExpertDetailsModalProps) => {
+  export const ExpertDetailsModal = ({ open, onOpenChange, expert, isFavorite = false, onToggleFavorite }: ExpertDetailsModalProps) => {
     if (!expert) return null;
   
     const initials = expert.name.split(" ").map(n => n[0]).join("");
@@ -116,21 +129,73 @@ import {
               </>
             )}
   
+            {/* Address Information */}
+            {expert.address && (
+              <>
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Address
+                  </h3>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    {expert.address.line1 && <p>{expert.address.line1}</p>}
+                    {expert.address.line2 && <p>{expert.address.line2}</p>}
+                    <p>
+                      {expert.address.city}, {expert.address.state} {expert.address.zip}
+                    </p>
+                    {expert.address.country && <p>{expert.address.country}</p>}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
+            {/* Additional Information */}
+            {(expert.npi || expert.gender) && (
+              <>
+                <div>
+                  <h3 className="font-semibold mb-3">Additional Information</h3>
+                  <div className="space-y-2 text-sm">
+                    {expert.npi && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-muted-foreground">NPI:</span>
+                        <span className="font-medium">{expert.npi}</span>
+                      </div>
+                    )}
+                    {expert.gender && (
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Gender:</span>
+                        <span className="font-medium">{expert.gender === 'M' ? 'Male' : expert.gender === 'F' ? 'Female' : expert.gender}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
             {/* Contact Information */}
             {expert.contact && (
               <div>
                 <h3 className="font-semibold mb-3">Contact Information</h3>
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-2 text-sm">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <a href={`mailto:${expert.contact.email}`} className="text-primary hover:underline">
-                      {expert.contact.email}
-                    </a>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{expert.contact.phone}</span>
-                  </div>
+                  {expert.contact.email && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <a href={`mailto:${expert.contact.email}`} className="text-primary hover:underline">
+                        {expert.contact.email}
+                      </a>
+                    </div>
+                  )}
+                  {expert.contact.phone && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${expert.contact.phone}`} className="text-primary hover:underline">
+                        {expert.contact.phone}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -138,7 +203,14 @@ import {
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button className="flex-1">Request Meeting</Button>
-              <Button variant="outline" className="flex-1">Save to Favorites</Button>
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={onToggleFavorite}
+              >
+                <Heart className={`h-4 w-4 mr-2 ${isFavorite ? 'fill-destructive text-destructive' : ''}`} />
+                {isFavorite ? 'Remove from Favorites' : 'Save to Favorites'}
+              </Button>
             </div>
           </div>
         </DialogContent>
