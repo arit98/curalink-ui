@@ -3,18 +3,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, MapPin, Camera, Edit2, Navigation, Loader2, GraduationCap } from "lucide-react";
+import { Mail, MapPin, Camera, Edit2, Navigation, Loader2, GraduationCap, Lock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { researcherService } from "@/services/researcherService";
+import { authService } from "@/services/authService";
 
 interface LocationSuggestion {
   display_name: string;
   lat: string;
   lon: string;
 }
+
+type ProfilePersonal = {
+  firstName: string;
+  email: string;
+  password: string;
+  role: string;
+};
+
+type ProfileDetails = {
+  condition: string;
+  location: string;
+  avatar: string;
+};
+
+type ProfileState = {
+  personal: ProfilePersonal;
+  details: ProfileDetails;
+};
 
 const getResearcherRole = (roleValue: any): string => {
   if (roleValue === "researcher" || roleValue === "caregiver" || roleValue === 1 || roleValue === "1") {
@@ -28,20 +48,26 @@ export const ResearcherProfile = () => {
   const roleFromStorage = localStorage.getItem("role");
   const token = localStorage.getItem("token");
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingAuth, setIsEditingAuth] = useState(false);
+  const [isEditingOnboarding, setIsEditingOnboarding] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
-  const [profile, setProfile] = useState({
-    fullName: localStorage.getItem("username") || "",
-    email: "",
-    role: "researcher",
-    condition: "",
-    location: "",
-    avatar: "",
+  const [profile, setProfile] = useState<ProfileState>({
+    personal: {
+      firstName: localStorage.getItem("username") || "",
+      email: "",
+      password: "",
+      role: "researcher",
+    },
+    details: {
+      condition: "",
+      location: "",
+      avatar: "",
+    },
   });
 
   const API_URL = getApiBaseUrl();
@@ -50,7 +76,63 @@ export const ResearcherProfile = () => {
     return roleFromStorage === "1" || roleFromStorage === "researcher" || Number(roleFromStorage) === 1;
   }, [roleFromStorage]);
 
-  const handleSave = async () => {
+  const handleSaveAuth = async () => {
+    if (!isResearcher) {
+      toast({ title: "Only researcher accounts can update this profile", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      if (userId) {
+        try {
+          // Prepare update payload
+          const updatePayload: any = {
+            name: profile.personal.firstName,
+            email: profile.personal.email,
+          };
+
+          // Only include password if it's not empty
+          if (profile.personal.password && profile.personal.password.trim()) {
+            updatePayload.password = profile.personal.password;
+          }
+
+          // Convert role to number (1 for researcher)
+          if (profile.personal.role === "researcher" || profile.personal.role === "1") {
+            updatePayload.role = 1;
+          } else {
+            updatePayload.role = Number(profile.personal.role) || 1;
+          }
+
+          await authService.updateUser(userId, updatePayload);
+          setIsEditingAuth(false);
+          toast({ title: "Account details updated successfully!" });
+          await fetchUserProfile();
+        } catch (updateError: any) {
+          const statusCode = updateError?.response?.status ?? updateError?.status;
+          if (statusCode !== 405) {
+            throw updateError;
+          }
+          console.warn(
+            "Account details update not supported on this backend.",
+            updateError
+          );
+          toast({ title: "Account details update not supported", variant: "destructive" });
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to save account details:", error);
+      toast({
+        title: error.response?.data?.detail || error.message || "Failed to update account details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveOnboarding = async () => {
     if (!isResearcher) {
       toast({ title: "Only researcher accounts can update this profile", variant: "destructive" });
       return;
@@ -60,21 +142,17 @@ export const ResearcherProfile = () => {
       setIsLoading(true);
 
       const updateData: { condition: string; location?: string } = {
-        condition: profile.condition || "",
+        condition: profile.details.condition || "",
       };
 
-      if (profile.location && profile.location.trim()) {
-        updateData.location = profile.location.trim();
+      if (profile.details.location && profile.details.location.trim()) {
+        updateData.location = profile.details.location.trim();
       }
+      
+      await researcherService.updateProfile(updateData);
 
-      await axios.put(`${API_URL}/onboarding/researcher/${userId}`, updateData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setIsEditing(false);
-      toast({ title: "Researcher profile updated successfully!" });
+      setIsEditingOnboarding(false);
+      toast({ title: "Research profile updated successfully!" });
       await fetchUserProfile();
     } catch (error: any) {
       console.error("Failed to save researcher profile:", error);
@@ -87,9 +165,13 @@ export const ResearcherProfile = () => {
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-    setLocationSearch(profile.location);
+  const handleEditAuth = () => {
+    setIsEditingAuth(true);
+  };
+
+  const handleEditOnboarding = () => {
+    setIsEditingOnboarding(true);
+    setLocationSearch(profile.details.location);
   };
 
   const getCurrentLocation = () => {
@@ -116,7 +198,13 @@ export const ResearcherProfile = () => {
                 .trim()
             : data.display_name;
 
-          setProfile({ ...profile, location: locationString });
+          setProfile((prev) => ({
+            ...prev,
+            details: {
+              ...prev.details,
+              location: locationString,
+            },
+          }));
           setLocationSearch(locationString);
           toast({ title: "Location updated!" });
         } catch (error) {
@@ -151,7 +239,13 @@ export const ResearcherProfile = () => {
 
   const handleLocationInputChange = (value: string) => {
     setLocationSearch(value);
-    setProfile({ ...profile, location: value });
+    setProfile((prev) => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        location: value,
+      },
+    }));
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -164,7 +258,13 @@ export const ResearcherProfile = () => {
 
   const selectLocationSuggestion = (suggestion: LocationSuggestion) => {
     const locationString = suggestion.display_name;
-    setProfile({ ...profile, location: locationString });
+    setProfile((prev) => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        location: locationString,
+      },
+    }));
     setLocationSearch(locationString);
     setShowSuggestions(false);
     setLocationSuggestions([]);
@@ -186,7 +286,7 @@ export const ResearcherProfile = () => {
       let location = "";
 
       try {
-        const researcherResponse = await axios.get(`${API_URL}/onboarding/researcher/${userId}`, {
+        const researcherResponse = await axios.get(`${API_URL}/onboarding/researcher`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -203,16 +303,30 @@ export const ResearcherProfile = () => {
       const resolvedRole = getResearcherRole(userData.role ?? roleFromStorage);
 
       setProfile({
-        fullName: userData.fullName || userData.full_name || userData.name || localStorage.getItem("username") || "",
-        email: userData.email,
-        role: resolvedRole,
-        condition,
-        location,
-        avatar: userData.avatar || userData.profile_picture || "",
+        personal: {
+          firstName:
+            userData.firstName ||
+            userData.firstname ||
+            userData.fullName ||
+            userData.full_name ||
+            userData.name ||
+            localStorage.getItem("username") ||
+            "",
+          email: userData.email,
+          password: userData.password,
+          role: resolvedRole,
+        },
+        details: {
+          condition,
+          location,
+          avatar: userData.avatar || userData.profile_picture || "",
+        },
       });
 
       if (location) {
         setLocationSearch(location);
+      } else {
+        setLocationSearch("");
       }
     } catch (error) {
       console.error("Failed to fetch researcher profile:", error);
@@ -245,50 +359,69 @@ export const ResearcherProfile = () => {
             </div>
           ) : (
             <div className="bg-card rounded-2xl shadow-lg shadow-mute p-8 space-y-6 relative">
-              {!isEditing && (
-                <Button
-                  onClick={handleEdit}
-                  size="icon"
-                  variant="ghost"
-                  className="absolute top-4 right-4 h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              )}
 
               <div className="flex flex-col items-center space-y-4 pb-6 border-b border-border">
                 <div className="relative group">
                   <Avatar className="h-24 w-24 border-4 border-teal-light shadow-soft">
-                    <AvatarImage src={profile.avatar} alt={profile.fullName} />
+                    <AvatarImage src={profile.details.avatar} alt={profile.personal.firstName || "Researcher"} />
                     <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
-                      {profile.fullName.split(" ").map((n) => n[0]).join("")}
+                      {profile.personal.firstName
+                        ? profile.personal.firstName
+                            .split(" ")
+                            .filter(Boolean)
+                            .map((n) => n[0]?.toUpperCase())
+                            .join("")
+                        : "RP"}
                     </AvatarFallback>
                   </Avatar>
-                  {isEditing && (
+                  {(isEditingAuth || isEditingOnboarding) && (
                     <button className="absolute inset-0 flex items-center justify-center bg-primary/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="h-6 w-6 text-primary-foreground" />
                     </button>
                   )}
                 </div>
                 <div className="text-center">
-                  <h1 className="text-2xl font-bold text-foreground">{profile.fullName}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">{profile.personal.firstName || "Researcher"}</h1>
                   <p className="text-sm text-muted-foreground mt-1">
                     Keep your research insights current so patients can find you faster.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-5">
+              {/* Account Information Section */}
+              <div className="space-y-5 pb-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">Account Information</h2>
+                  {!isEditingAuth && (
+                    <Button
+                      onClick={handleEditAuth}
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2 text-foreground font-medium">
+                  <Label htmlFor="firstName" className="flex items-center gap-2 text-foreground font-medium">
                     <GraduationCap className="h-4 w-4 text-primary" />
-                    Full Name
+                    First Name
                   </Label>
                   <Input
-                    id="fullName"
-                    value={profile.fullName}
-                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                    disabled={!isEditing}
+                    id="firstName"
+                    value={profile.personal.firstName}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          firstName: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
                 </div>
@@ -301,9 +434,41 @@ export const ResearcherProfile = () => {
                   <Input
                     id="email"
                     type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    disabled={!isEditing}
+                    value={profile.personal.email}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          email: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
+                    className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="flex items-center gap-2 text-foreground font-medium">
+                    <Lock className="h-4 w-4 text-primary" />
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={profile.personal.password}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          password: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
+                    placeholder="Enter new password"
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
                 </div>
@@ -315,10 +480,49 @@ export const ResearcherProfile = () => {
                   </Label>
                   <Input
                     id="role"
-                    value="Researcher"
+                    value={
+                      profile.personal.role === "researcher"
+                        ? "Researcher"
+                        : profile.personal.role || "Researcher"
+                    }
                     disabled
                     className="h-12 bg-[#f6fbfa] border-border text-foreground"
                   />
+                </div>
+
+                {isEditingAuth && (
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleSaveAuth}
+                      className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      onClick={() => setIsEditingAuth(false)}
+                      variant="outline"
+                      className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Research Profile Section */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">Research Profile</h2>
+                  {!isEditingOnboarding && (
+                    <Button
+                      onClick={handleEditOnboarding}
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -328,9 +532,17 @@ export const ResearcherProfile = () => {
                   </Label>
                   <Input
                     id="condition"
-                    value={profile.condition}
-                    onChange={(e) => setProfile({ ...profile, condition: e.target.value })}
-                    disabled={!isEditing}
+                    value={profile.details.condition}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        details: {
+                          ...prev.details,
+                          condition: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingOnboarding}
                     placeholder="e.g., Diabetes management, Rare diseases"
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
@@ -345,15 +557,15 @@ export const ResearcherProfile = () => {
                     <div className="flex gap-2">
                       <Input
                         id="location"
-                        value={isEditing ? locationSearch : profile.location}
+                        value={isEditingOnboarding ? locationSearch : profile.details.location}
                         onChange={(e) => handleLocationInputChange(e.target.value)}
-                        onFocus={() => isEditing && locationSuggestions.length > 0 && setShowSuggestions(true)}
+                        onFocus={() => isEditingOnboarding && locationSuggestions.length > 0 && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        disabled={!isEditing}
+                        disabled={!isEditingOnboarding}
                         placeholder="City, State or Country"
                         className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors flex-1"
                       />
-                      {isEditing && (
+                      {isEditingOnboarding && (
                         <Button
                           type="button"
                           onClick={getCurrentLocation}
@@ -387,25 +599,25 @@ export const ResearcherProfile = () => {
                     )}
                   </div>
                 </div>
-              </div>
 
-              {isEditing && (
-                <div className="flex gap-3 pt-6">
-                  <Button
-                    onClick={handleSave}
-                    className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
-                  >
-                    Save Changes
-                  </Button>
-                  <Button
-                    onClick={() => setIsEditing(false)}
-                    variant="outline"
-                    className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+                {isEditingOnboarding && (
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleSaveOnboarding}
+                      className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      onClick={() => setIsEditingOnboarding(false)}
+                      variant="outline"
+                      className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

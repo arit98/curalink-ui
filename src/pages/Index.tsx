@@ -30,7 +30,7 @@ const Index = () => {
                     className="text-lg px-8"
                     onClick={() => navigate("/user?mode=register&role=0")}
                   >
-                    I'm a Patient or Caregiver
+                    I'm a Patient
                   </Button>
                   <Button 
                     size="lg" 

@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Heart, MapPin, Camera, Edit2, Navigation, Loader2 } from "lucide-react";
+import { Mail, MapPin, Camera, Edit2, Navigation, Loader2, GraduationCap, Lock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
+import { patientService } from "@/services/patientService";
+import { authService } from "@/services/authService";
 
 interface LocationSuggestion {
   display_name: string;
@@ -17,52 +18,57 @@ interface LocationSuggestion {
   lon: string;
 }
 
-const getUserRole = (roleValue: any): string => {
-  if (roleValue === 0 || roleValue === "0" || roleValue === "patient") return "patient";
-  if (roleValue === 1 || roleValue === "1" || roleValue === "caregiver" || roleValue === "researcher") return "researcher";
+type ProfilePersonal = {
+  firstName: string;
+  email: string;
+  password: string;
+  role: string;
+};
+
+type ProfileDetails = {
+  condition: string;
+  location: string;
+  avatar: string;
+};
+
+type ProfileState = {
+  personal: ProfilePersonal;
+  details: ProfileDetails;
+};
+
+const getPatientRole = (roleValue: any): string => {
+  if (roleValue === "patient" || roleValue === 0 || roleValue === "0") {
+    return "patient";
+  }
   return "patient";
 };
 
-
 export const PatientProfile = () => {
-
   const userId = localStorage.getItem("userId");
   const roleFromStorage = localStorage.getItem("role");
   const token = localStorage.getItem("token");
 
-  // Helper function to convert numeric role to string
-  const getRoleString = (roleValue: any): string => {
-    if (typeof roleValue === "string") {
-      // If it's already a string like "patient" or "caregiver", return it
-      if (roleValue === "patient" || roleValue === "caregiver" || roleValue === "researcher") {
-        return roleValue === "researcher" ? "caregiver" : roleValue;
-      }
-      // If it's a numeric string, convert it
-      const numRole = Number(roleValue);
-      return numRole === 0 ? "patient" : numRole === 1 ? "caregiver" : "";
-    }
-    if (typeof roleValue === "number") {
-      return roleValue === 0 ? "patient" : roleValue === 1 ? "caregiver" : "";
-    }
-    return "";
-  };
-
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingAuth, setIsEditingAuth] = useState(false);
+  const [isEditingOnboarding, setIsEditingOnboarding] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
-  const [profile, setProfile] = useState({
-    fullName: localStorage.getItem("username") || "",
-    email: "",
-    role: "patient",
-    condition: "",
-    location: "",
-    avatar: "",
+  const [profile, setProfile] = useState<ProfileState>({
+    personal: {
+      firstName: localStorage.getItem("username") || "",
+      email: "",
+      password: "",
+      role: "patient",
+    },
+    details: {
+      condition: "",
+      location: "",
+      avatar: "",
+    },
   });
-  const [hasPatientProfile, setHasPatientProfile] = useState(false);
 
   const API_URL = getApiBaseUrl();
 
@@ -70,13 +76,65 @@ export const PatientProfile = () => {
     return roleFromStorage === "0" || roleFromStorage === "patient" || Number(roleFromStorage) === 0;
   }, [roleFromStorage]);
 
-  const handleSave = async () => {
+  const handleSaveAuth = async () => {
     if (!isPatient) {
       toast({ title: "Only patient accounts can update this profile", variant: "destructive" });
       return;
     }
-    if (!token || !userId) {
-      toast({ title: "Missing session information. Please sign in again.", variant: "destructive" });
+
+    try {
+      setIsLoading(true);
+
+      if (userId) {
+        try {
+          // Prepare update payload
+          const updatePayload: any = {
+            name: profile.personal.firstName,
+            email: profile.personal.email,
+          };
+
+          // Only include password if it's not empty
+          if (profile.personal.password && profile.personal.password.trim()) {
+            updatePayload.password = profile.personal.password;
+          }
+
+          // Convert role to number (0 for patient)
+          if (profile.personal.role === "patient" || profile.personal.role === "0") {
+            updatePayload.role = 0;
+          } else {
+            updatePayload.role = Number(profile.personal.role) || 0;
+          }
+
+          await authService.updateUser(userId, updatePayload);
+          setIsEditingAuth(false);
+          toast({ title: "Account details updated successfully!" });
+          await fetchUserProfile();
+        } catch (updateError: any) {
+          const statusCode = updateError?.response?.status ?? updateError?.status;
+          if (statusCode !== 405) {
+            throw updateError;
+          }
+          console.warn(
+            "Account details update not supported on this backend.",
+            updateError
+          );
+          toast({ title: "Account details update not supported", variant: "destructive" });
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to save account details:", error);
+      toast({
+        title: error.response?.data?.detail || error.message || "Failed to update account details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveOnboarding = async () => {
+    if (!isPatient) {
+      toast({ title: "Only patient accounts can update this profile", variant: "destructive" });
       return;
     }
 
@@ -84,26 +142,16 @@ export const PatientProfile = () => {
       setIsLoading(true);
 
       const updateData: { condition: string; location?: string } = {
-        condition: profile.condition || "",
+        condition: profile.details.condition || "",
       };
 
-      if (profile.location && profile.location.trim()) {
-        updateData.location = profile.location.trim();
+      if (profile.details.location && profile.details.location.trim()) {
+        updateData.location = profile.details.location.trim();
       }
+      
+      await patientService.updateProfile(updateData);
 
-      const endpoint = hasPatientProfile
-        ? `${API_URL}/onboarding/patient/${userId}`
-        : `${API_URL}/onboarding/patient`;
-      const requestMethod = hasPatientProfile ? axios.put : axios.post;
-
-      await requestMethod(endpoint, updateData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setIsEditing(false);
-      setHasPatientProfile(true);
+      setIsEditingOnboarding(false);
       toast({ title: "Patient profile updated successfully!" });
       await fetchUserProfile();
     } catch (error: any) {
@@ -117,9 +165,13 @@ export const PatientProfile = () => {
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-    setLocationSearch(profile.location);
+  const handleEditAuth = () => {
+    setIsEditingAuth(true);
+  };
+
+  const handleEditOnboarding = () => {
+    setIsEditingOnboarding(true);
+    setLocationSearch(profile.details.location);
   };
 
   const getCurrentLocation = () => {
@@ -134,20 +186,25 @@ export const PatientProfile = () => {
         const { latitude, longitude } = position.coords;
 
         try {
-          // Reverse geocoding using Nominatim
           const response = await axios.get(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
           );
           const data = response.data;
 
           const locationString = data.address
-            ? `${data.address.city || data.address.town || data.address.village || ''}, ${data.address.state || ''}, ${data.address.country || ''}`
-              .replace(/^,\s*/, '')
-              .replace(/,\s*,/g, ',')
-              .trim()
+            ? `${data.address.city || data.address.town || data.address.village || ""}, ${data.address.state || ""}, ${data.address.country || ""}`
+                .replace(/^,\s*/, "")
+                .replace(/,\s*,/g, ",")
+                .trim()
             : data.display_name;
 
-          setProfile({ ...profile, location: locationString });
+          setProfile((prev) => ({
+            ...prev,
+            details: {
+              ...prev.details,
+              location: locationString,
+            },
+          }));
           setLocationSearch(locationString);
           toast({ title: "Location updated!" });
         } catch (error) {
@@ -156,7 +213,7 @@ export const PatientProfile = () => {
           setIsLocating(false);
         }
       },
-      (error) => {
+      () => {
         setIsLocating(false);
         toast({ title: "Unable to retrieve your location", variant: "destructive" });
       }
@@ -173,8 +230,7 @@ export const PatientProfile = () => {
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
       );
-      const data = response.data;
-      setLocationSuggestions(data);
+      setLocationSuggestions(response.data);
       setShowSuggestions(true);
     } catch (error) {
       console.error("Location search failed:", error);
@@ -183,7 +239,13 @@ export const PatientProfile = () => {
 
   const handleLocationInputChange = (value: string) => {
     setLocationSearch(value);
-    setProfile({ ...profile, location: value });
+    setProfile((prev) => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        location: value,
+      },
+    }));
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -196,13 +258,18 @@ export const PatientProfile = () => {
 
   const selectLocationSuggestion = (suggestion: LocationSuggestion) => {
     const locationString = suggestion.display_name;
-    setProfile({ ...profile, location: locationString });
+    setProfile((prev) => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        location: locationString,
+      },
+    }));
     setLocationSearch(locationString);
     setShowSuggestions(false);
     setLocationSuggestions([]);
   };
 
-  // Fetch user profile data from API
   const fetchUserProfile = useCallback(async () => {
     if (!userId) {
       setIsLoading(false);
@@ -212,73 +279,62 @@ export const PatientProfile = () => {
 
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/auth/${userId}`, {
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : undefined,
-      });
+      const response = await axios.get(`${API_URL}/auth/${userId}`);
       const userData = response.data;
-      console.log("User Data: ", userData);
 
-      // Update profile with fetched data
-      const apiRole = userData.role ?? roleFromStorage;
-      const roleString = getUserRole(apiRole);
-      console.log("API Role:", apiRole, "Role from Storage:", roleFromStorage, "Converted Role:", roleString);
-      
-      // Determine if user is a researcher
-      const isResearcher = apiRole === 1 || roleFromStorage === "1" || Number(roleFromStorage) === 1;
-      
       let condition = "";
       let location = "";
-      if (isPatient && token) {
-        try {
-          const patientResponse = await axios.get(`${API_URL}/onboarding/patient`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const patientData = patientResponse.data;
-          console.log("Patient Data: ", patientData);
-          condition = patientData.condition || "";
-          location = patientData.location || "";
-          setHasPatientProfile(true);
-        } catch (patientError: any) {
-          console.warn("Patient profile not found or error fetching:", patientError);
-          const statusCode = patientError?.response?.status;
-          if (statusCode === 404) {
-            setHasPatientProfile(false);
-          }
-          condition = userData.condition || userData.medical_condition || "";
-          location = userData.location || "";
-        }
-      } else {
-        condition = userData.condition || userData.medical_condition || "";
+
+      try {
+        const patientResponse = await axios.get(`${API_URL}/onboarding/patient`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const patientData = patientResponse.data;
+        condition = patientData.condition || "";
+        location = patientData.location || "";
+      } catch (patientError: any) {
+        console.warn("Patient profile not found or error fetching:", patientError);
+        condition = userData.condition || "";
         location = userData.location || "";
-        setHasPatientProfile(false);
       }
-      
+
+      const resolvedRole = getPatientRole(userData.role ?? roleFromStorage);
+
       setProfile({
-        fullName: userData.fullName || userData.name || "",
-        email: userData.email,
-        role: roleString,  // ✔ actual role
-        condition,
-        location,
-        avatar: userData.avatar || "",
-      });        
-      
-      // Initialize locationSearch with the fetched location
+        personal: {
+          firstName:
+            userData.firstName ||
+            userData.firstname ||
+            userData.fullName ||
+            userData.full_name ||
+            userData.name ||
+            localStorage.getItem("username") ||
+            "",
+          email: userData.email,
+          password: userData.password,
+          role: resolvedRole,
+        },
+        details: {
+          condition,
+          location,
+          avatar: userData.avatar || userData.profile_picture || "",
+        },
+      });
+
       if (location) {
         setLocationSearch(location);
+      } else {
+        setLocationSearch("");
       }
     } catch (error) {
-      console.error("Failed to fetch user profile:", error);
+      console.error("Failed to fetch patient profile:", error);
       toast({ title: "Failed to load profile data", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [userId, roleFromStorage, token, API_URL, isPatient]);
+  }, [API_URL, roleFromStorage, token, userId]);
 
   useEffect(() => {
     fetchUserProfile();
@@ -303,53 +359,69 @@ export const PatientProfile = () => {
             </div>
           ) : (
             <div className="bg-card rounded-2xl shadow-lg shadow-mute p-8 space-y-6 relative">
-              {/* Edit Button - Top Right */}
-              {!isEditing && (
-                <Button
-                  onClick={handleEdit}
-                  size="icon"
-                  variant="ghost"
-                  className="absolute top-4 right-4 h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              )}
 
-              {/* Header with Avatar */}
               <div className="flex flex-col items-center space-y-4 pb-6 border-b border-border">
                 <div className="relative group">
                   <Avatar className="h-24 w-24 border-4 border-teal-light shadow-soft">
-                    <AvatarImage src={profile.avatar} alt={profile.fullName} />
+                    <AvatarImage src={profile.details.avatar} alt={profile.personal.firstName || "Patient"} />
                     <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
-                      {profile.fullName.split(" ").map((n) => n[0]).join("")}
+                      {profile.personal.firstName
+                        ? profile.personal.firstName
+                            .split(" ")
+                            .filter(Boolean)
+                            .map((n) => n[0]?.toUpperCase())
+                            .join("")
+                        : "P"}
                     </AvatarFallback>
                   </Avatar>
-                  {isEditing && (
+                  {(isEditingAuth || isEditingOnboarding) && (
                     <button className="absolute inset-0 flex items-center justify-center bg-primary/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="h-6 w-6 text-primary-foreground" />
                     </button>
                   )}
                 </div>
                 <div className="text-center">
-                  <h1 className="text-2xl font-bold text-foreground">{profile.fullName}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">{profile.personal.firstName || "Patient"}</h1>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Keep your info up to date to connect with the right researchers
+                    Keep your profile updated to connect with the right researchers and caregivers.
                   </p>
                 </div>
               </div>
 
-              {/* Form Fields */}
-              <div className="space-y-5">
+              {/* Account Information Section */}
+              <div className="space-y-5 pb-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">Account Information</h2>
+                  {!isEditingAuth && (
+                    <Button
+                      onClick={handleEditAuth}
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2 text-foreground font-medium">
-                    <User className="h-4 w-4 text-primary" />
-                    Full Name
+                  <Label htmlFor="firstName" className="flex items-center gap-2 text-foreground font-medium">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                    First Name
                   </Label>
                   <Input
-                    id="fullName"
-                    value={profile.fullName}
-                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                    disabled={!isEditing}
+                    id="firstName"
+                    value={profile.personal.firstName}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          firstName: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
                 </div>
@@ -362,47 +434,116 @@ export const PatientProfile = () => {
                   <Input
                     id="email"
                     type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    disabled={!isEditing}
+                    value={profile.personal.email}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          email: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
+                    className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="flex items-center gap-2 text-foreground font-medium">
+                    <Lock className="h-4 w-4 text-primary" />
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={profile.personal.password}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        personal: {
+                          ...prev.personal,
+                          password: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingAuth}
+                    placeholder="Enter new password"
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="role" className="flex items-center gap-2 text-foreground font-medium">
-                    <User className="h-4 w-4 text-primary" />
+                    <GraduationCap className="h-4 w-4 text-primary" />
                     Role
                   </Label>
-                  <Select
-                    value={profile.role}
-                    onValueChange={(value) => setProfile({ ...profile, role: value })}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="h-12 bg-[#f6fbfa] border-border focus:border-primary">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="patient">Patient</SelectItem>
-                      <SelectItem value="caregiver">Researcher</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="role"
+                    value={
+                      profile.personal.role === "patient"
+                        ? "Patient"
+                        : profile.personal.role || "Patient"
+                    }
+                    disabled
+                    className="h-12 bg-[#f6fbfa] border-border text-foreground"
+                  />
+                </div>
+
+                {isEditingAuth && (
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleSaveAuth}
+                      className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      onClick={() => setIsEditingAuth(false)}
+                      variant="outline"
+                      className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Patient Profile Section */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">Patient Profile</h2>
+                  {!isEditingOnboarding && (
+                    <Button
+                      onClick={handleEditOnboarding}
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-[#f6fbfa]"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  {roleFromStorage != "0" ? <Label htmlFor="condition" className="flex items-center gap-2 text-foreground font-medium">
-                    <Heart className="h-4 w-4 text-primary" />
-                    Experience
-                  </Label> : <Label htmlFor="condition" className="flex items-center gap-2 text-foreground font-medium">
-                    <Heart className="h-4 w-4 text-primary" />
-                    Condition
-                  </Label>}
+                  <Label htmlFor="condition" className="flex items-center gap-2 text-foreground font-medium">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                    Medical Condition
+                  </Label>
                   <Input
                     id="condition"
-                    value={profile.condition}
-                    onChange={(e) => setProfile({ ...profile, condition: e.target.value })}
-                    disabled={!isEditing}
-                    placeholder="Enter your medical condition or concern"
+                    value={profile.details.condition}
+                    onChange={(e) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        details: {
+                          ...prev.details,
+                          condition: e.target.value,
+                        },
+                      }))
+                    }
+                    disabled={!isEditingOnboarding}
+                    placeholder="e.g., Diabetes, Heart disease, Rare condition"
                     className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors"
                   />
                 </div>
@@ -416,15 +557,15 @@ export const PatientProfile = () => {
                     <div className="flex gap-2">
                       <Input
                         id="location"
-                        value={isEditing ? locationSearch : profile.location}
+                        value={isEditingOnboarding ? locationSearch : profile.details.location}
                         onChange={(e) => handleLocationInputChange(e.target.value)}
-                        onFocus={() => isEditing && locationSuggestions.length > 0 && setShowSuggestions(true)}
+                        onFocus={() => isEditingOnboarding && locationSuggestions.length > 0 && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        disabled={!isEditing}
+                        disabled={!isEditingOnboarding}
                         placeholder="City, State or Country"
                         className="h-12 bg-[#f6fbfa] border-border focus:border-primary transition-colors flex-1"
                       />
-                      {isEditing && (
+                      {isEditingOnboarding && (
                         <Button
                           type="button"
                           onClick={getCurrentLocation}
@@ -432,11 +573,7 @@ export const PatientProfile = () => {
                           size="icon"
                           className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
-                          {isLocating ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Navigation className="h-4 w-4" />
-                          )}
+                          {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
                         </Button>
                       )}
                     </div>
@@ -462,26 +599,25 @@ export const PatientProfile = () => {
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* Action Buttons - Only show in edit mode */}
-              {isEditing && (
-                <div className="flex gap-3 pt-6">
-                  <Button
-                    onClick={handleSave}
-                    className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
-                  >
-                    Save Changes
-                  </Button>
-                  <Button
-                    onClick={() => setIsEditing(false)}
-                    variant="outline"
-                    className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
+                {isEditingOnboarding && (
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleSaveOnboarding}
+                      className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-soft transition-all hover:shadow-md"
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      onClick={() => setIsEditingOnboarding(false)}
+                      variant="outline"
+                      className="flex-1 h-12 border-2 border-primary text-primary hover:bg-teal-soft transition-colors"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -489,3 +625,5 @@ export const PatientProfile = () => {
     </>
   );
 };
+
+

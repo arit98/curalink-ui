@@ -20,4 +20,20 @@ export const patientService = {
 
     return res.data;
   },
+
+  async updateProfile(data: {
+    condition?: string;
+    location?: string;
+  }) {
+    const token = authService.getToken();
+    if (!token) throw new Error("User not authenticated");
+
+    const res = await axios.put(`${API_URL}/onboarding/patient`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return res.data;
+  },
 };

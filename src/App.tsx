@@ -105,10 +105,18 @@ const App = () => {
             />
             {/* Protected Routes common */}
             <Route
-              path="/profile"
+              path="/researcher-profile"
               element={
-                <PrivateRoute allowedRoles={[0, 1]}>
-                  {user === 1 ? <ResearcherProfile /> : <PatientProfile />}
+                <PrivateRoute allowedRoles={[1]}>
+                  <ResearcherProfile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/patient-profile"
+              element={
+                <PrivateRoute allowedRoles={[0]}>
+                  <PatientProfile />
                 </PrivateRoute>
               }
             />

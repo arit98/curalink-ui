@@ -45,4 +45,21 @@ export const researcherService = {
       throw new Error(error.response?.data?.detail || "Failed to fetch patients");
     }
   },
+
+  async updateProfile(data: {
+    condition?: string;
+    location?: string;
+    tags?: string[];
+  }) {
+    const token = authService.getToken();
+    if (!token) throw new Error("User not authenticated");
+
+    const res = await axios.put(`${API_URL}/onboarding/researcher`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return res.data;
+  },
 };

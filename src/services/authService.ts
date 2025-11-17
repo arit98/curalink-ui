@@ -13,6 +13,13 @@ interface RegisterCredentials {
   role: number;
 }
 
+interface UpdateUserPayload {
+  email?: string;
+  password?: string;
+  name?: string;
+  role?: number | string;
+}
+
 interface AuthResponse {
   role?: number;
   success: boolean;
@@ -140,5 +147,37 @@ export const authService = {
     });
 
     return response.data;
+  },
+
+  async updateUser(id: string, updates: UpdateUserPayload): Promise<any> {
+    const token = this.getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await axios.put(
+      `${API_URL}/auth/${encodeURIComponent(id)}`,
+      updates,
+      { 
+        headers 
+      },
+    );
+
+    const data = response.data;
+    const updatedUser = data?.user ?? data;
+
+    if (updatedUser?.id) {
+      localStorage.setItem('userId', String(updatedUser.id));
+      localStorage.setItem('role', String(updatedUser.role ?? localStorage.getItem('role') ?? ''));
+      if (updatedUser.name) localStorage.setItem('username', updatedUser.name);
+    }
+
+    if (data?.token || data?.access_token) {
+      localStorage.setItem('token', data.token || data.access_token);
+    }
+
+    // Notify app that auth state changed
+    try { window.dispatchEvent(new Event('authChange')); } catch (e) { /* noop */ }
+
+    return data;
   },
 };

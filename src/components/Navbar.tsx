@@ -34,7 +34,14 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
   }
 
   const handleProfile = () => {
-    navigate("/profile")
+    const userRole = authService.getRole();
+    if (userRole == 0) {
+      navigate("/patient-profile");
+    } else if (userRole == 1) {
+      navigate("/researcher-profile");
+    } else {
+      navigate("/");
+    }
   }
 
   useEffect(() => {
