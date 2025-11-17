@@ -43,6 +43,19 @@ const Experts = () => {
     };
   }, []);
 
+  const specialtyOptions = useMemo(() => {
+    const unique = new Map<string, string>();
+    experts.forEach((expert) => {
+      const label = expert.specialty?.trim();
+      if (!label) return;
+      const value = label.toLowerCase();
+      if (!unique.has(value)) unique.set(value, label);
+    });
+    return Array.from(unique.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [experts]);
+
   const filteredExperts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return experts.filter((expert) => {
@@ -66,6 +79,17 @@ const Experts = () => {
     });
   }, [experts, searchQuery, filterSpecialty, location]);
 
+  const renderSpecialtyItems = () => (
+    <>
+      <SelectItem value="all">All Specialties</SelectItem>
+      {specialtyOptions.map(({ value, label }) => (
+        <SelectItem key={value} value={value}>
+          {label}
+        </SelectItem>
+      ))}
+    </>
+  );
+
   const FilterContent = () => (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -75,10 +99,7 @@ const Experts = () => {
             <SelectValue placeholder="All specialties" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Specialties</SelectItem>
-            <SelectItem value="oncology">Oncology</SelectItem>
-            <SelectItem value="cardiology">Cardiology</SelectItem>
-            <SelectItem value="neurology">Neurology</SelectItem>
+            {renderSpecialtyItems()}
           </SelectContent>
         </Select>
       </div>
@@ -146,10 +167,7 @@ const Experts = () => {
                   <SelectValue placeholder="Specialty" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Specialties</SelectItem>
-                  <SelectItem value="oncology">Oncology</SelectItem>
-                  <SelectItem value="cardiology">Cardiology</SelectItem>
-                  <SelectItem value="neurology">Neurology</SelectItem>
+                  {renderSpecialtyItems()}
                 </SelectContent>
               </Select>
 

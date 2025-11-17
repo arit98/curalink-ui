@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Search, Heart, User, Menu, LogOut, LayoutDashboard } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from 'react-toastify';
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,7 +47,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
     if (!shouldLogout) return;
     navigate("/");
     authService.logout();
-    toast.success("Logged out successfully");
+    toast({ title: "Logged out successfully" });
     setShouldLogout(false);
   }, [shouldLogout, navigate]);
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Navbar } from "@/components/Navbar";
-import { toast } from 'react-toastify';
+import { toast } from "@/hooks/use-toast";
 import { Mail, Lock, User as UserIcon } from "lucide-react";
 import { authService } from "@/services/authService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,7 +57,7 @@ const UserProfile = () => {
       const result = await authService.login({ email, password });
 
       if (result.success) {
-        toast.success("Signed in successfully");
+        toast({ title: "Signed in successfully" });
         const resolvedRole = result.role ?? authService.getRole();
 
         if (resolvedRole === 0) {
@@ -77,12 +77,15 @@ const UserProfile = () => {
         }
       } else {
         setError(result.message || "Login failed");
-        toast.error(result.message || "Login failed");
+        toast({
+          title: result.message || "Login failed",
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred");
-      toast.error("An unexpected error occurred");
+      toast({ title: "An unexpected error occurred", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +109,7 @@ const UserProfile = () => {
       });
 
       if (result.success) {
-        toast.success("Account created successfully");
+        toast({ title: "Account created successfully" });
 
         // Navigate to onboarding based on role
         if (role === 0) {
@@ -118,11 +121,14 @@ const UserProfile = () => {
         }
       } else {
         setError(result.message || "Registration failed");
-        toast.error(result.message || "Registration failed");
+        toast({
+          title: result.message || "Registration failed",
+          variant: "destructive",
+        });
       }
     } catch (err) {
       setError("An unexpected error occurred");
-      toast.error("An unexpected error occurred");
+      toast({ title: "An unexpected error occurred", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, FileText, Loader2, X } from "lucide-react";
 import { publicationService } from "@/services/publicationService";
 import { extractPDFMetadata } from "@/lib/pdfExtractor";
+import { toast } from "@/hooks/use-toast";
 
 interface CreatePublicationModalProps {
   onSuccess: () => void;
@@ -53,7 +54,11 @@ export const CreatePublicationModal = ({
     if (!file) return;
 
     if (file.type !== "application/pdf") {
-      alert("Please upload a PDF file");
+      toast({
+        title: "Unsupported file",
+        description: "Please upload a PDF document.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -86,17 +91,24 @@ export const CreatePublicationModal = ({
       }
     } catch (error: any) {
       console.error("Error extracting PDF metadata:", error);
-      // Show user-friendly error message
       const errorMessage = error.message || "Failed to extract metadata from PDF. Please fill in the form manually.";
-      alert(errorMessage);
+      toast({
+        title: "Extraction failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setExtracting(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!form.title || !form.authors) {
-      alert("Please fill in at least Title and Authors");
+    if (!form.title.trim() || !form.authors.trim()) {
+      toast({
+        title: "Missing required fields",
+        description: "Please provide both a title and authors.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -125,6 +137,10 @@ export const CreatePublicationModal = ({
 
       await publicationService.createPublication(payload);
 
+      toast({
+        title: "Publication created",
+        description: "Your publication has been added successfully.",
+      });
       onSuccess();
       setOpen(false);
 
@@ -150,7 +166,11 @@ export const CreatePublicationModal = ({
       console.error(err);
       const errorMessage =
         err.response?.data?.message || err.message || "Failed to create publication";
-      alert(errorMessage);
+      toast({
+        title: "Failed to create publication",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }

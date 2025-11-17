@@ -9,6 +9,7 @@ import { colorPool } from "@/lib/helper";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
 import { useFavorites } from "@/hooks/useFavorites";
+import { toast } from "@/hooks/use-toast";
 
 import {
   Dialog,
@@ -40,6 +41,7 @@ const Forums = () => {
     category_id: "",
     preview: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const timeAgo = (timestamp: string) => {
     const now = new Date();
@@ -93,6 +95,50 @@ const Forums = () => {
       setPosts(validPosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!form.title.trim() || !form.author.trim() || !form.category_id || !form.preview.trim()) {
+      toast({
+        title: "Missing details",
+        description: "Please fill in the title, author, category, and preview before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const body = {
+      ...form,
+      role: localStorage.getItem("role") === "0" ? "patient" : "researcher",
+      replies: 0,
+    };
+
+    setIsSubmitting(true);
+    try {
+      await axios.post(`${getApiBaseUrl()}/forums/posts`, body, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      toast({ title: "Post created", description: "Your discussion is now live." });
+      setOpen(false);
+      setForm({
+        title: "",
+        author: "",
+        role: "",
+        category_id: "",
+        preview: "",
+      });
+      fetchPosts();
+    } catch (error: any) {
+      console.error("Error creating post:", error);
+      toast({
+        title: "Failed to create post",
+        description: error.response?.data?.message || error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -177,38 +223,8 @@ const Forums = () => {
           </div>
 
           <DialogFooter>
-            <Button
-              onClick={async () => {
-                const body = {
-                  ...form,
-                  role: localStorage.getItem("role") === "0" ? "patient" : "researcher",
-                  replies: 0,
-                };
-
-                try {
-                  await axios.post(
-                    `${getApiBaseUrl()}/forums/posts`,
-                    body,
-                    {
-                      headers: { "Content-Type": "application/json" },
-                    }
-                  );
-
-                  setOpen(false);
-                  setForm({
-                    title: "",
-                    author: "",
-                    role: "",
-                    category_id: "",
-                    preview: "",
-                  });
-                  fetchPosts();
-                } catch (error) {
-                  console.error("Error creating post:", error);
-                }
-              }}
-            >
-              Submit
+            <Button onClick={handleCreatePost} disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>

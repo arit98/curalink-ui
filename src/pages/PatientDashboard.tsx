@@ -117,7 +117,7 @@ const PatientDashboard = () => {
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex flex-row gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {trialsLoading ? (
                     <div>Loading trials...</div>
                   ) : trialsError ? (
@@ -126,13 +126,15 @@ const PatientDashboard = () => {
                     <div>No trials found.</div>
                   ) : (
                     trials.map((trial) => (
+                      <div key={trial.id ?? trial.title} className="flex-shrink-0 w-80">
                       <TrialCard
                         key={trial.id ?? trial.title}
                         {...trial}
                         isFavorite={isFavorite(trial.id, 'trial')}
-                        onToggleFavorite={() => toggleFavorite(trial.id, 'trial', trial)}
-                        onViewDetails={() => setSelectedTrial(trial)}
-                      />
+                          onToggleFavorite={() => toggleFavorite(trial.id, 'trial', trial)}
+                          onViewDetails={() => setSelectedTrial(trial)}
+                        />
+                      </div>
                     ))
                   )}
                 </div>

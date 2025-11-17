@@ -102,6 +102,119 @@ const ResearcherDashboard = () => {
     loadPatients();
   }, []);
 
+  // Helper function to get date from various possible field names
+  const getDateFromObject = (obj: any): Date | null => {
+    if (!obj) return null;
+    const dateFields = ['created_at', 'createdAt', 'timestamp', 'date', 'created_date', 'start_date'];
+    for (const field of dateFields) {
+      if (obj[field]) {
+        const date = new Date(obj[field]);
+        if (!isNaN(date.getTime())) return date;
+      }
+    }
+    return null;
+  };
+
+  // Calculate active trials change this month
+  const calculateActiveTrialsChange = () => {
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    
+    const currentActive = trials.filter(t => {
+      const status = (t?.status || "").toLowerCase();
+      return status === "active";
+    }).length;
+
+    // Count trials that became active this month
+    const activeThisMonth = allTrials.filter(t => {
+      const status = (t?.status || "").toLowerCase();
+      if (status !== "active") return false;
+      const trialDate = getDateFromObject(t);
+      return trialDate && trialDate >= oneMonthAgo && trialDate <= now;
+    }).length;
+
+    if (activeThisMonth === 0) return "No change this month";
+    return `+${activeThisMonth} this month`;
+  };
+
+  // Calculate patients change this month
+  const calculatePatientsChange = () => {
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    
+    const patientsThisMonth = patients.filter(p => {
+      const patientDate = getDateFromObject(p);
+      return patientDate && patientDate >= oneMonthAgo && patientDate <= now;
+    }).length;
+
+    if (patientsThisMonth === 0) return "No change this month";
+    return `+${patientsThisMonth} this month`;
+  };
+
+  // Calculate publications change this quarter
+  const calculatePublicationsChange = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentQuarter = Math.floor(currentMonth / 3); // 0, 1, 2, or 3
+    
+    // Get publications from current quarter
+    const publicationsThisQuarter = publications.filter(pub => {
+      const pubYear = pub.year ? parseInt(pub.year) : null;
+      if (pubYear !== currentYear) return false;
+      
+      const pubDate = getDateFromObject(pub);
+      if (pubDate) {
+        const pubMonth = pubDate.getMonth();
+        const pubQuarter = Math.floor(pubMonth / 3);
+        return pubQuarter === currentQuarter;
+      }
+      // Fallback: if no date, assume current quarter if year matches
+      return true;
+    }).length;
+
+    if (publicationsThisQuarter === 0) return "No change this quarter";
+    return `+${publicationsThisQuarter} this quarter`;
+  };
+
+  // Calculate success rate dynamically
+  const calculateSuccessRate = () => {
+    const totalTrials = allTrials.length;
+    if (totalTrials === 0) return { value: "0%", change: "No data" };
+
+    // Count completed/successful trials
+    const completedTrials = allTrials.filter(t => {
+      const status = (t?.status || "").toLowerCase();
+      return status === "completed" || status === "successful" || status === "closed";
+    }).length;
+
+    const successRate = totalTrials > 0 ? Math.round((completedTrials / totalTrials) * 100) : 0;
+
+    // Calculate change from last year (simplified - compare with previous year's data if available)
+    // For now, we'll use a simple calculation based on recent completions
+    const now = new Date();
+    const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    
+    const recentCompleted = allTrials.filter(t => {
+      const status = (t?.status || "").toLowerCase();
+      if (status !== "completed" && status !== "successful" && status !== "closed") return false;
+      const trialDate = getDateFromObject(t);
+      return trialDate && trialDate >= oneYearAgo && trialDate <= now;
+    }).length;
+
+    // Estimate previous year's rate (simplified)
+    const previousTotal = Math.max(1, totalTrials - recentCompleted);
+    const previousCompleted = Math.max(0, completedTrials - recentCompleted);
+    const previousRate = previousTotal > 0 ? Math.round((previousCompleted / previousTotal) * 100) : 0;
+    const change = successRate - previousRate;
+
+    if (change === 0) return { value: `${successRate}%`, change: "No change vs last year" };
+    const changeSign = change > 0 ? "+" : "";
+    return { value: `${successRate}%`, change: `${changeSign}${change}% vs last year` };
+  };
+
+  const successRateData = calculateSuccessRate();
+
   const stats = [
     {
       title: "Active Trials",
@@ -109,25 +222,25 @@ const ResearcherDashboard = () => {
         const status = (t?.status || "").toLowerCase();
         return status === "active";
       }).length,
-      change: "+3 this month",
+      change: calculateActiveTrialsChange(),
       icon: FlaskConical,
     },
     {
       title: "Total Patients",
       value: patientsLoading ? "..." : patients.length.toString(),
-      change: "+124 this month",
+      change: calculatePatientsChange(),
       icon: Users,
     },
     {
       title: "Publications",
       value: publications.length,
-      change: "+5 this quarter",
+      change: calculatePublicationsChange(),
       icon: FileText,
     },
     {
       title: "Success Rate",
-      value: "78%",
-      change: "+12% vs last year",
+      value: successRateData.value,
+      change: successRateData.change,
       icon: TrendingUp,
     },
   ];
@@ -277,7 +390,7 @@ const ResearcherDashboard = () => {
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex flex-row gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {trialsLoading ? (
                     <div>Loading trials...</div>
                   ) : trialsError ? (
@@ -286,13 +399,14 @@ const ResearcherDashboard = () => {
                     <div>No trials found.</div>
                   ) : (
                     trials.map((trial) => (
-                      <TrialCard
-                        key={trial.id ?? trial.title}
-                        {...trial}
-                        isFavorite={isFavorite(trial.id, 'trial')}
-                        onToggleFavorite={() => toggleFavorite(trial.id, 'trial', trial)}
-                        onViewDetails={() => setSelectedTrial(trial)}
-                      />
+                      <div key={trial.id ?? trial.title} className="flex-shrink-0 w-80">
+                        <TrialCard
+                          {...trial}
+                          isFavorite={isFavorite(trial.id, 'trial')}
+                          onToggleFavorite={() => toggleFavorite(trial.id, 'trial', trial)}
+                          onViewDetails={() => setSelectedTrial(trial)}
+                        />
+                      </div>
                     ))
                   )}
                 </div>
@@ -309,7 +423,7 @@ const ResearcherDashboard = () => {
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex flex-row gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {publicationsLoading ? (
                     <div>Loading publications...</div>
                   ) : publicationsError ? (
@@ -318,19 +432,20 @@ const ResearcherDashboard = () => {
                     <div>No publications found.</div>
                   ) : (
                     publications.map((pub) => (
-                      <PublicationCard
-                        key={pub.id ?? pub.title}
-                        id={pub.id}
-                        title={pub.title}
-                        authors={pub.authors}
-                        journal={pub.journal ?? ""}
-                        year={pub.year ? String(pub.year) : ""}
-                        abstract={pub.abstract ?? ""}
-                        tags={Array.isArray(pub.tags) ? pub.tags : pub.tags ? String(pub.tags).split(",").map(t=>t.trim()) : []}
-                        isFavorite={isFavorite(pub.id, 'publication')}
-                        onToggleFavorite={() => toggleFavorite(pub.id, 'publication', pub)}
-                        onViewDetails={() => setSelectedPublication(pub)}
-                      />
+                      <div key={pub.id ?? pub.title} className="flex-shrink-0 w-[42rem]">
+                        <PublicationCard
+                          id={pub.id}
+                          title={pub.title}
+                          authors={pub.authors}
+                          journal={pub.journal ?? ""}
+                          year={pub.year ? String(pub.year) : ""}
+                          abstract={pub.abstract ?? ""}
+                          tags={Array.isArray(pub.tags) ? pub.tags : pub.tags ? String(pub.tags).split(",").map(t=>t.trim()) : []}
+                          isFavorite={isFavorite(pub.id, 'publication')}
+                          onToggleFavorite={() => toggleFavorite(pub.id, 'publication', pub)}
+                          onViewDetails={() => setSelectedPublication(pub)}
+                        />
+                      </div>
                     ))
                   )}
                 </div>
@@ -415,7 +530,7 @@ const ResearcherDashboard = () => {
             <TabsContent value="publications" className="space-y-6">
               <div className="flex items-center justify-between mb-4 md:mt-0 mt-16">
                 <h2 className="text-2xl font-semibold text-foreground">
-                  All Publications
+                  Top Publications
                 </h2>
                 <CreatePublicationModal
                   onSuccess={async () => {

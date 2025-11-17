@@ -1,8 +1,4 @@
 import { Toaster } from "@/components/ui/toaster";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import './styles/react-toastify-overrides.css';
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -45,9 +41,6 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
-        <ToastContainer className={"md:flex hidden"} position="bottom-right" />
-        <ToastContainer className={"flex md:hidden"} position="top-center" />
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}

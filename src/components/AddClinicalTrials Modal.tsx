@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { trialService } from "@/services/trialService";
+import { toast } from "@/hooks/use-toast";
 
 export const AddTrialModal = ({
   onSuccess,
@@ -20,6 +21,7 @@ export const AddTrialModal = ({
   onSuccess: () => void;
 }) => {
   const [open, setOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -40,6 +42,16 @@ export const AddTrialModal = ({
     setForm((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = async () => {
+    if (!form.title.trim() || !form.phase.trim() || !form.location.trim()) {
+      toast({
+        title: "Missing required fields",
+        description: "Please provide a title, phase, and location.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const payload = {
         title: form.title,
@@ -63,6 +75,10 @@ export const AddTrialModal = ({
 
       await trialService.createTrial(payload);
 
+      toast({
+        title: "Trial created",
+        description: "The clinical trial has been added successfully.",
+      });
       onSuccess();
       setOpen(false);
 
@@ -85,7 +101,13 @@ export const AddTrialModal = ({
       console.error(err);
       const errorMessage =
         err.response?.data?.message || err.message || "Failed to save trial";
-      alert(errorMessage);
+      toast({
+        title: "Failed to save trial",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -187,7 +209,9 @@ export const AddTrialModal = ({
         </div>
 
         <DialogFooter>
-          <Button onClick={handleSubmit}>Save Trial</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Trial"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

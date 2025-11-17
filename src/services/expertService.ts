@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const DOCTORS_API_URL = 'https://doctorsapi.com/api/doctors';
-const DOCTORS_API_KEY = 'hk_mi1ssugx2216ef1d7763a9ea3effd3eb883ea6d983ce617366166ab99cc3f7a086099075';
+const DOCTORS_API_KEY = import.meta.env.VITE_DOCTORS_API_KEY;
 
 export async function fetchExperts(): Promise<any[]> {
   try {

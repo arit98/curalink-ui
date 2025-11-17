@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
 import { ArrowRight, Loader2, Navigation, X } from "lucide-react";
 import { authService } from "@/services/authService";
-import { toast } from "react-toastify";
+import { toast } from "@/hooks/use-toast";
 import { researcherService } from "@/services/researcherService";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
@@ -26,7 +26,7 @@ const ResearcherOnboarding = () => {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
+      toast({ title: "Geolocation is not supported by your browser", variant: "destructive" });
       return;
     }
 
@@ -50,16 +50,16 @@ const ResearcherOnboarding = () => {
             : data.display_name;
 
           setLocation(locationString);
-          toast.success("Location updated!");
+          toast({ title: "Location updated!" });
         } catch (error) {
-          toast.error("Failed to fetch location details");
+          toast({ title: "Failed to fetch location details", variant: "destructive" });
         } finally {
           setIsLocating(false);
         }
       },
       (error) => {
         setIsLocating(false);
-        toast.error("Unable to retrieve your location");
+        toast({ title: "Unable to retrieve your location", variant: "destructive" });
       }
     );
   };
@@ -115,12 +115,15 @@ const ResearcherOnboarding = () => {
           location,
           tags: selectedTags,
         });
-        toast.success("Your researcher profile has been saved successfully!");
+        toast({ title: "Your researcher profile has been saved successfully!" });
         console.log("Saved profile:", res);
         navigate("/researcher-dashboard");
       } catch (error: any) {
         console.error(error);
-        toast.error(error.message || "Error saving profile. Please try again.");
+        toast({
+          title: error.message || "Error saving profile. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };

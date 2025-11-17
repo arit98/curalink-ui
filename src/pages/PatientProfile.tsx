@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Mail, Heart, MapPin, Camera, Edit2, Navigation, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import axios from "axios";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 interface LocationSuggestion {
   display_name: string;
@@ -20,6 +21,7 @@ export const PatientProfile = () => {
 
   const userId = localStorage.getItem("userId");
   const roleFromStorage = localStorage.getItem("role");
+  const token = localStorage.getItem("token");
 
   // Helper function to convert numeric role to string
   const getRoleString = (roleValue: any): string => {
@@ -54,9 +56,62 @@ export const PatientProfile = () => {
     avatar: "",
   });
 
-  const handleSave = () => {
-    setIsEditing(false);
-    toast.success("Profile updated successfully!");
+  const API_URL = getApiBaseUrl()
+
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Determine if user is a researcher (role 1) or patient (role 0)
+      const isResearcher = profile.role === "caregiver" || profile.role === "researcher" || 
+                          roleFromStorage === "1" || Number(roleFromStorage) === 1;
+      
+      if (isResearcher) {
+        // Update researcher profile
+        const updateData: { condition: string; location?: string } = {
+          condition: profile.condition || "",
+        };
+        
+        if (profile.location && profile.location.trim()) {
+          updateData.location = profile.location.trim();
+        }
+        
+        await axios.put(`${API_URL}/onboarding/researcher/${userId}`, updateData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        // Update patient profile
+        const updateData: { condition: string; location?: string } = {
+          condition: profile.condition || "",
+        };
+        
+        if (profile.location && profile.location.trim()) {
+          updateData.location = profile.location.trim();
+        }
+        
+        await axios.put(`${API_URL}/onboarding/patient/${userId}`, updateData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+      
+      setIsEditing(false);
+      toast({ title: "Profile updated successfully!" });
+      
+      // Refresh profile data
+      await fetchUserProfile();
+    } catch (error: any) {
+      console.error("Failed to save profile:", error);
+      toast({
+        title: error.response?.data?.detail || error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = () => {
@@ -66,7 +121,7 @@ export const PatientProfile = () => {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
+      toast({ title: "Geolocation is not supported by your browser", variant: "destructive" });
       return;
     }
 
@@ -91,16 +146,16 @@ export const PatientProfile = () => {
 
           setProfile({ ...profile, location: locationString });
           setLocationSearch(locationString);
-          toast.success("Location updated!");
+          toast({ title: "Location updated!" });
         } catch (error) {
-          toast.error("Failed to get location details");
+          toast({ title: "Failed to get location details", variant: "destructive" });
         } finally {
           setIsLocating(false);
         }
       },
       (error) => {
         setIsLocating(false);
-        toast.error("Unable to retrieve your location");
+        toast({ title: "Unable to retrieve your location", variant: "destructive" });
       }
     );
   };
@@ -145,41 +200,92 @@ export const PatientProfile = () => {
   };
 
   // Fetch user profile data from API
+  const fetchUserProfile = useCallback(async () => {
+    if (!userId) {
+      setIsLoading(false);
+      toast({ title: "User ID not found", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${API_URL}/auth/${userId}`);
+      const userData = response.data;
+      console.log("User Data: ", userData);
+
+      // Update profile with fetched data
+      const apiRole = userData.role !== undefined ? userData.role : roleFromStorage;
+      const roleString = getRoleString(apiRole) || getRoleString(roleFromStorage) || "";
+      console.log("API Role:", apiRole, "Role from Storage:", roleFromStorage, "Converted Role:", roleString);
+      
+      // Determine if user is a researcher
+      const isResearcher = apiRole === 1 || roleFromStorage === "1" || Number(roleFromStorage) === 1;
+      
+      let condition = "";
+      let location = "";
+      
+      if (isResearcher) {
+        // Fetch researcher profile data
+        try {
+          const researcherResponse = await axios.get(`${API_URL}/onboarding/researcher/${userId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const researcherData = researcherResponse.data;
+          console.log("Researcher Data: ", researcherData);
+          condition = researcherData.condition || "";
+          location = researcherData.location || "";
+        } catch (researcherError: any) {
+          console.warn("Researcher profile not found or error fetching:", researcherError);
+          // If researcher profile doesn't exist yet, use defaults
+          condition = userData.condition || userData.medical_condition || "";
+          location = userData.location || "";
+        }
+      } else {
+        // For patients, try to get patient profile data
+        try {
+          const patientResponse = await axios.get(`${API_URL}/onboarding/patient/${userId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const patientData = patientResponse.data;
+          console.log("Patient Data: ", patientData);
+          condition = patientData.condition || "";
+          location = patientData.location || "";
+        } catch (patientError: any) {
+          console.warn("Patient profile not found or error fetching:", patientError);
+          // Fallback to user data
+          condition = userData.condition || userData.medical_condition || "";
+          location = userData.location || "";
+        }
+      }
+      
+      setProfile({
+        fullName: userData.fullName || userData.full_name || userData.name || localStorage.getItem("username") || "",
+        email: userData.email,
+        role: roleString,
+        condition: condition,
+        location: location,
+        avatar: userData.avatar || userData.profile_picture || "",
+      });
+      
+      // Initialize locationSearch with the fetched location
+      if (location) {
+        setLocationSearch(location);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      toast({ title: "Failed to load profile data", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, roleFromStorage, token, API_URL]);
+
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!userId) {
-        setIsLoading(false);
-        toast.error("User ID not found");
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const response = await axios.get(`http://127.0.0.1:8000/api/v1/auth/${userId}`);
-        const userData = response.data;
-
-        // Update profile with fetched data
-        const apiRole = userData.role !== undefined ? userData.role : roleFromStorage;
-        const roleString = getRoleString(apiRole) || getRoleString(roleFromStorage) || "";
-        console.log("API Role:", apiRole, "Role from Storage:", roleFromStorage, "Converted Role:", roleString);
-        setProfile({
-          fullName: userData.fullName || userData.full_name || userData.name || localStorage.getItem("username") || "",
-          email: userData.email || "john.doe@email.com",
-          role: roleString,
-          condition: userData.condition || userData.medical_condition || "Type 2 Diabetes",
-          location: userData.location || "San Francisco, CA",
-          avatar: userData.avatar || userData.profile_picture || "",
-        });
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
-        toast.error("Failed to load profile data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchUserProfile();
-  }, [userId, roleFromStorage]);
+  }, [fetchUserProfile]);
 
   useEffect(() => {
     return () => {

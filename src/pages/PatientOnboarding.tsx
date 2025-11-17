@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Navbar } from "@/components/Navbar";
 import { ArrowRight, Navigation, Loader2 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { patientService } from "@/services/patientService";
 import axios from "axios";
@@ -29,7 +29,7 @@ const PatientOnboarding = () => {
   // Get current location and reverse geocode
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
+      toast({ title: "Geolocation is not supported by your browser", variant: "destructive" });
       return;
     }
 
@@ -53,16 +53,16 @@ const PatientOnboarding = () => {
             : data.display_name;
 
           setLocation(locationString);
-          toast.success("Location updated!");
+          toast({ title: "Location updated!" });
         } catch (error) {
-          toast.error("Failed to fetch location details");
+          toast({ title: "Failed to fetch location details", variant: "destructive" });
         } finally {
           setIsLocating(false);
         }
       },
       (error) => {
         setIsLocating(false);
-        toast.error("Unable to retrieve your location");
+        toast({ title: "Unable to retrieve your location", variant: "destructive" });
       }
     );
   };
@@ -78,11 +78,14 @@ const PatientOnboarding = () => {
       try {
         setIsLoading(true);
         await patientService.saveProfile({ condition, location });
-        toast.success("Your patient account has been successfully created!");
+        toast({ title: "Your patient account has been successfully created!" });
         navigate("/patient-dashboard");
       } catch (err: any) {
         console.error("Error saving patient profile:", err);
-        toast.error(err.message || "Failed to complete onboarding");
+        toast({
+          title: err.message || "Failed to complete onboarding",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }

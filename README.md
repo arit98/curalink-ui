@@ -72,7 +72,6 @@ cura-link/ui/
 │   │       ├── sidebar.tsx
 │   │       ├── skeleton.tsx
 │   │       ├── slider.tsx
-│   │       ├── sonner.tsx
 │   │       ├── switch.tsx
 │   │       ├── table.tsx
 │   │       ├── tabs.tsx
@@ -114,7 +113,6 @@ cura-link/ui/
 │   │   ├── researcherService.ts
 │   │   └── trialService.ts
 │   ├── styles/                    # Global styles
-│   │   └── react-toastify-overrides.css
 │   ├── App.css
 │   ├── App.tsx                    # Main App component
 │   ├── index.css                  # Global CSS
