@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import UserProfile from "./pages/User";
 import { useEffect, useState } from "react";
 import { PatientProfile } from "./pages/PatientProfile";
+import { ResearcherProfile } from "./pages/ResearcherProfile";
 // import PublicRoute from "./components/PublicRoute";
 
 const queryClient = new QueryClient();
@@ -107,7 +108,7 @@ const App = () => {
               path="/profile"
               element={
                 <PrivateRoute allowedRoles={[0, 1]}>
-                  <PatientProfile />
+                  {user === 1 ? <ResearcherProfile /> : <PatientProfile />}
                 </PrivateRoute>
               }
             />
