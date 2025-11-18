@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Users, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { colorPool } from "@/lib/helper";
 import axios from "axios";
 import { getApiBaseUrl } from "@/lib/apiConfig";
@@ -26,6 +27,7 @@ import { DiscussionModal } from "@/components/Discussion Modal";
 
 const Forums = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
+  const location = useLocation();
   const [categories, setCategories] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -153,6 +155,31 @@ const Forums = () => {
     }
   }, [categories]);
 
+  // Get search query from URL params
+  const searchQuery = new URLSearchParams(location.search).get("search") || "";
+
+  // Filter posts by search query only (for category counts)
+  const searchFilteredPosts = posts.filter((post) => {
+    if (!searchQuery.trim()) return true;
+    
+    const q = searchQuery.toLowerCase();
+    const matchesTitle = (post.title ?? "").toLowerCase().includes(q);
+    const matchesAuthor = (post.author ?? "").toLowerCase().includes(q);
+    const matchesPreview = (post.preview ?? "").toLowerCase().includes(q);
+    const matchesCategory = (post.categoryName ?? post.category ?? "").toLowerCase().includes(q);
+    
+    return matchesTitle || matchesAuthor || matchesPreview || matchesCategory;
+  });
+
+  // Filter posts based on search query and selected category (for display)
+  const filteredPosts = searchFilteredPosts.filter((post) => {
+    // Filter by category
+    if (selectedCategoryId !== null && post.category_id !== selectedCategoryId) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* -------- MODAL FOR CREATE POST -------- */}
@@ -259,11 +286,11 @@ const Forums = () => {
                   >
                     <span className="flex-1 text-left font-medium">All Categories</span>
                     <span className="text-xs text-muted-foreground">
-                      {posts.length}
+                      {filteredPosts.length}
                     </span>
                   </Button>
                   {categories.map((category) => {
-                    const postCount = posts.filter((post) => post.category_id === category.id).length;
+                    const postCount = searchFilteredPosts.filter((post) => post.category_id === category.id).length;
                     return (
                       <Button
                         key={category.id}
@@ -297,20 +324,20 @@ const Forums = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Total Posts</span>
                     <span className="font-semibold text-muted-foreground">
-                      {posts.length.toLocaleString()}
+                      {filteredPosts.length.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Active Users</span>
                     <span className="font-semibold text-muted-foreground">
-                      {new Set(posts.map((post) => post.author)).size.toLocaleString()}
+                      {new Set(filteredPosts.map((post) => post.author)).size.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Researchers</span>
                     <span className="font-semibold text-muted-foreground">
                       {new Set(
-                        posts
+                        filteredPosts
                           .filter((post) =>
                             post.role?.toLowerCase?.().includes("researcher")
                           )
@@ -331,11 +358,7 @@ const Forums = () => {
                 <Button onClick={() => setOpen(true)}>New Post</Button>
               </div>
 
-              {posts
-                .filter((post) => 
-                  selectedCategoryId === null || post.category_id === selectedCategoryId
-                )
-                .map((post) => (
+              {filteredPosts.map((post) => (
                 <Card key={post.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">

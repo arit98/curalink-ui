@@ -56,12 +56,19 @@ const Publications = () => {
 
       <main className="flex-1">
         <div className="container py-8">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Publications</h1>
-              <p className="text-muted-foreground">Browse research publications and medical literature.</p>
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4 md:mb-0">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Publications</h1>
+                <p className="text-muted-foreground">Browse research publications and medical literature.</p>
+              </div>
+              <div className="hidden md:block">
+                <CreatePublicationModal onSuccess={loadPublications} />
+              </div>
             </div>
-            <CreatePublicationModal onSuccess={loadPublications} />
+            <div className="md:hidden mb-6">
+              <CreatePublicationModal onSuccess={loadPublications} />
+            </div>
           </div>
 
           <div className="mb-6">

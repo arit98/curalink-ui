@@ -187,43 +187,45 @@ export const CreatePublicationModal = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button size="sm">
-            <Upload className="h-4 w-4 mr-1" /> Upload Publication
+          <Button size="sm" className="text-xs sm:text-sm w-full md:w-auto">
+            <Upload className="h-4 w-4 mr-1" /> 
+            <span className="hidden sm:inline">Upload Publication</span>
+            <span className="sm:hidden">Upload</span>
           </Button>
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-3xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-[95vw] sm:max-w-3xl w-full mx-4 sm:mx-auto">
         <DialogHeader>
-          <DialogTitle>Create New Publication</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Create New Publication</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
             Upload a research paper PDF to automatically extract metadata, or fill in the form manually.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* PDF Upload Section */}
           <div className="space-y-2">
-            <Label>Upload Research Paper (PDF)</Label>
-            <div className="flex items-center gap-2">
+            <Label className="text-sm sm:text-base">Upload Research Paper (PDF)</Label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Input
                 ref={fileInputRef}
                 type="file"
                 accept=".pdf"
                 onChange={handleFileUpload}
-                className="flex-1"
+                className="flex-1 text-sm sm:text-base"
                 disabled={extracting}
               />
               {uploadedFileName && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  <span className="truncate max-w-[200px]">{uploadedFileName}</span>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate flex-1 min-w-0">{uploadedFileName}</span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={handleRemoveFile}
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 flex-shrink-0"
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -231,7 +233,7 @@ export const CreatePublicationModal = ({
               )}
             </div>
             {extracting && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Extracting metadata from PDF...</span>
               </div>
@@ -239,119 +241,139 @@ export const CreatePublicationModal = ({
           </div>
 
           {/* Form Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="md:col-span-2">
-              <Label>Title *</Label>
+              <Label className="text-sm sm:text-base">Title *</Label>
               <Input
                 value={form.title}
                 onChange={(e) => update("title", e.target.value)}
                 placeholder="Research paper title"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Authors *</Label>
+              <Label className="text-sm sm:text-base">Authors *</Label>
               <Input
                 value={form.authors}
                 onChange={(e) => update("authors", e.target.value)}
                 placeholder="Author names (comma-separated)"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div>
-              <Label>Journal</Label>
+              <Label className="text-sm sm:text-base">Journal</Label>
               <Input
                 value={form.journal}
                 onChange={(e) => update("journal", e.target.value)}
                 placeholder="Journal name"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div>
-              <Label>Year</Label>
+              <Label className="text-sm sm:text-base">Year</Label>
               <Input
                 value={form.year}
                 onChange={(e) => update("year", e.target.value)}
                 placeholder="Publication year"
                 type="number"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>DOI</Label>
+              <Label className="text-sm sm:text-base">DOI</Label>
               <Input
                 value={form.doi}
                 onChange={(e) => update("doi", e.target.value)}
                 placeholder="10.xxxx/xxxxx"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Abstract</Label>
+              <Label className="text-sm sm:text-base">Abstract</Label>
               <Textarea
                 value={form.abstract}
                 onChange={(e) => update("abstract", e.target.value)}
                 placeholder="Brief abstract"
                 rows={3}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Full Abstract</Label>
+              <Label className="text-sm sm:text-base">Full Abstract</Label>
               <Textarea
                 value={form.fullAbstract}
                 onChange={(e) => update("fullAbstract", e.target.value)}
                 placeholder="Complete abstract text"
                 rows={5}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Tags (comma-separated)</Label>
+              <Label className="text-sm sm:text-base">Tags (comma-separated)</Label>
               <Input
                 value={form.tags}
                 onChange={(e) => update("tags", e.target.value)}
                 placeholder="cancer, immunotherapy, clinical trial"
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Introduction</Label>
+              <Label className="text-sm sm:text-base">Introduction</Label>
               <Textarea
                 value={form.introduction}
                 onChange={(e) => update("introduction", e.target.value)}
                 placeholder="Research introduction"
                 rows={4}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Key Results</Label>
+              <Label className="text-sm sm:text-base">Key Results</Label>
               <Textarea
                 value={form.results}
                 onChange={(e) => update("results", e.target.value)}
                 placeholder="Key findings and results"
                 rows={4}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label>Conclusion</Label>
+              <Label className="text-sm sm:text-base">Conclusion</Label>
               <Textarea
                 value={form.conclusion}
                 onChange={(e) => update("conclusion", e.target.value)}
                 placeholder="Research conclusions"
                 rows={4}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={uploading}>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button 
+            variant="outline" 
+            onClick={() => setOpen(false)} 
+            disabled={uploading}
+            className="w-full sm:w-auto order-2 sm:order-1"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={uploading || extracting}>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={uploading || extracting}
+            className="w-full sm:w-auto order-1 sm:order-2"
+          >
             {uploading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

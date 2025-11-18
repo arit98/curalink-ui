@@ -22,6 +22,7 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
   const location = useLocation();
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const navLinks = [
     { label: "Dashboard", path: "/" },
@@ -58,6 +59,46 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
     setShouldLogout(false);
   }, [shouldLogout, navigate]);
 
+  // Sync search query with URL params when on forums page
+  useEffect(() => {
+    if (location.pathname === "/forums") {
+      const params = new URLSearchParams(location.search);
+      const query = params.get("search") || "";
+      setSearchQuery(query);
+    } else {
+      setSearchQuery("");
+    }
+  }, [location]);
+
+  // Update URL when search query changes (debounced)
+  useEffect(() => {
+    if (location.pathname !== "/forums") return;
+
+    const timeoutId = setTimeout(() => {
+      const params = new URLSearchParams(location.search);
+      const currentSearch = params.get("search") || "";
+      const newSearchValue = searchQuery.trim();
+      
+      // Only update if the search value actually changed
+      if (currentSearch !== newSearchValue) {
+        if (newSearchValue) {
+          params.set("search", newSearchValue);
+        } else {
+          params.delete("search");
+        }
+        const newSearch = params.toString();
+        const newPath = newSearch ? `/forums?${newSearch}` : "/forums";
+        navigate(newPath, { replace: true });
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, location.pathname, location.search, navigate]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -75,6 +116,8 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
               <Input
                 placeholder="Search posts, authors, categories..."
                 className="pl-10"
+                value={searchQuery}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -126,13 +169,17 @@ export const Navbar = ({ showSearch = false }: NavbarProps) => {
             <div className="flex flex-col space-y-4 mt-8">
               {showSearch && (
                 <>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search..."
-                      className="pl-10"
-                    />
-                  </div>
+                  {location.pathname === "/forums" && (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search posts, authors, categories..."
+                        className="pl-10"
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                      />
+                    </div>
+                  )}
                   {navLinks.map((link) => (
                     <Link key={link.path} to={link.path}>
                       <Button variant="ghost" className="w-full justify-start">

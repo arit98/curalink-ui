@@ -156,6 +156,23 @@ const ClinicalTrials = () => {
               </Sheet>
             </div>
 
+            {/* Mobile: Add Trial Button */}
+            {role != "0" && (
+              <div className="flex md:hidden">
+                <AddTrialModal
+                  onSuccess={async () => {
+                    try {
+                      const data = await trialService.fetchTrials();
+                      setTrials(Array.isArray(data) ? data : []);
+                    } catch (err: any) {
+                      console.error("Failed to refresh trials:", err);
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Desktop: Filters and Add Trial */}
             <div className="hidden md:flex gap-4 justify-between">
               <div className="flex items-center justify-center gap-4">
                 <Select value={recruitmentStatus} onValueChange={setRecruitmentStatus}>
@@ -178,16 +195,18 @@ const ClinicalTrials = () => {
               </div>
 
               {/* Add Trial */}
-             {role != "0" ? <AddTrialModal
-                onSuccess={async () => {
-                  try {
-                    const data = await trialService.fetchTrials();
-                    setTrials(Array.isArray(data) ? data : []);
-                  } catch (err: any) {
-                    console.error("Failed to refresh trials:", err);
-                  }
-                }}
-              /> : ""}
+              {role != "0" && (
+                <AddTrialModal
+                  onSuccess={async () => {
+                    try {
+                      const data = await trialService.fetchTrials();
+                      setTrials(Array.isArray(data) ? data : []);
+                    } catch (err: any) {
+                      console.error("Failed to refresh trials:", err);
+                    }
+                  }}
+                />
+              )}
             </div>
           </div>
 
