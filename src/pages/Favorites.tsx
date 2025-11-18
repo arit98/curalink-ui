@@ -28,6 +28,8 @@ const Favorites = () => {
   const favoritePublications = getFavoritesByType('publication');
   const favoriteForums = getFavoritesByType('forum');
 
+  const role = localStorage.getItem("role");
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar showSearch />
@@ -46,8 +48,8 @@ const Favorites = () => {
           <Tabs defaultValue="trials" className="space-y-6">
             <TabsList>
               <TabsTrigger value="trials">Clinical Trials</TabsTrigger>
-              <TabsTrigger value="experts">Experts</TabsTrigger>
-              <TabsTrigger value="publications">Publications</TabsTrigger>
+              {role != "1" && <TabsTrigger value="experts">Experts</TabsTrigger>}
+              {role != "0" && <TabsTrigger value="publications">Publications</TabsTrigger>}
               <TabsTrigger value="forums">Forums</TabsTrigger>
             </TabsList>
 
@@ -167,9 +169,9 @@ const Favorites = () => {
                             <MessageSquare className="h-4 w-4 mr-1" />
                             <span>{forum.replies || 0} replies from researchers</span>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setSelectedForum(forum);
                               setIsForumModalOpen(true);
